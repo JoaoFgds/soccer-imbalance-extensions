@@ -10,17 +10,19 @@
 - Valid league-seasons: 306
 - Unique fixtures: 112,094
 - Raw schedule views: 224,120
-- Tests: 14 passed
+- Tests: 16 passed
 - Lint: Ruff passed
 - Git diff whitespace validation: passed
-- Acquisition idempotence: second run reused both cached archives and revalidated
+- Acquisition idempotence: rerun reused all three cached archives and revalidated
   their SHA-256 values
 - Live pilot: two successful Transfermarkt requests; HTML retained only in ignored
   local cache
 - Reference repository before and after: clean `master` at
   `54b4625be98d9710fc41e72bade8f2e68049c920`
-- MVP 3 robustness: 20/20 leave-one-league-out estimates and 6/6 temporally
-  safe alternative specifications retained the primary interaction sign.
+- MVP 3 robustness: 20/20 same-season and 20/20 preceding-season
+  leave-one-league-out estimates retained the negative interaction sign. All 3/3
+  outcome specifications using verified pre-match Elo also retained it. The lagged
+  model covered 5,078 rows and 288 league-seasons.
 - MVP 4 robustness: 289 league-seasons, two nulls, 10,000 permutations per
   league-season/null and 5,780,000 valid draws; zero upper-tail findings after
   within-null FDR correction.

@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from .analysis import run_mvp1, run_mvp2, run_mvp3, run_mvp4, run_mvp5, save_summary
-from .data import discover_source, load_matches, load_standings, write_json
+from .data import discover_source, load_market_values, load_matches, load_standings, write_json
 from .features import add_elo, to_team_match
 
 LOGGER = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ def run_pipeline(source_root: Path, project_root: Path, only: int | None = None)
     layout = discover_source(source_root)
     LOGGER.info("Loading standings from %s", layout.standings)
     standings = load_standings(layout)
+    market_values = load_market_values(layout)
     LOGGER.info("Loading and validating schedule files")
     matches, diagnostics = load_matches(layout, standings)
     diagnostics.update(
@@ -57,7 +58,16 @@ def run_pipeline(source_root: Path, project_root: Path, only: int | None = None)
     if only in (None, 3):
         if team_seasons is None:
             team_seasons, _ = run_mvp1(standings, team_matches, tables, figures, config["criteria"])
-        results.append(run_mvp3(team_seasons, team_matches, tables, figures, config["criteria"]))
+        results.append(
+            run_mvp3(
+                team_seasons,
+                team_matches,
+                tables,
+                figures,
+                config["criteria"],
+                market_values,
+            )
+        )
     if only in (None, 4):
         results.append(run_mvp4(matches, standings, tables, figures, config["mvp4"], int(config["seed"])))
     if only in (None, 5):

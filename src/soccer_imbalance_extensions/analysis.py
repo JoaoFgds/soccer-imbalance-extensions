@@ -85,6 +85,53 @@ def _fit_mvp3_model(data: pd.DataFrame, outcome: str, ssb: str):
     )
 
 
+def _build_lagged_market_data(
+    team_seasons: pd.DataFrame, market_values: pd.DataFrame
+) -> pd.DataFrame:
+    """Replace same-season valuations with information from the preceding season."""
+    if market_values.empty:
+        return team_seasons.iloc[0:0].copy()
+
+    history = market_values.copy()
+    history["total_market_value_euros"] = history["total_market_value_euros"].where(
+        history["total_market_value_euros"] > 0
+    )
+    prior_team = history[
+        ["season_year", "team_canonical", "total_market_value_euros"]
+    ].rename(columns={"total_market_value_euros": "lagged_market_value_euros"})
+    prior_team["season_year"] = prior_team["season_year"] + 1
+    prior_league = (
+        history.groupby(["league_name", "season_year"])["total_market_value_euros"]
+        .apply(gini)
+        .rename("lagged_market_gini")
+        .reset_index()
+    )
+    prior_league["season_year"] = prior_league["season_year"] + 1
+
+    data = team_seasons.merge(
+        prior_team,
+        on=["season_year", "team_canonical"],
+        how="left",
+        validate="many_to_one",
+    ).merge(
+        prior_league,
+        on=["league_name", "season_year"],
+        how="left",
+        validate="many_to_one",
+    )
+    data["lagged_log_market"] = np.log(
+        data["lagged_market_value_euros"].where(lambda values: values > 0)
+    )
+    groups = ["league_name", "season_year"]
+    data["relative_log_market"] = data["lagged_log_market"] - data.groupby(groups)[
+        "lagged_log_market"
+    ].transform("mean")
+    data["market_gini"] = data["lagged_market_gini"]
+    data["league_season"] = data["league_name"] + "|" + data["season_year"].astype(str)
+    required = ["points_per_game", "ssb_continuous", "relative_log_market", "market_gini"]
+    return data.dropna(subset=required).copy()
+
+
 def run_mvp1(
     standings: pd.DataFrame,
     team_matches: pd.DataFrame,
@@ -214,6 +261,7 @@ def run_mvp3(
     tables: Path,
     figures: Path,
     criteria: dict,
+    market_values: pd.DataFrame | None = None,
 ) -> dict:
     data = team_seasons.copy()
     group = ["league_name", "season_year"]
@@ -353,7 +401,7 @@ def run_mvp3(
                 {
                     "outcome": outcome,
                     "schedule_balance": balance,
-                    "temporally_safe": balance != "ssb_final_rank",
+                    "schedule_strength_temporally_safe": balance == "ssb_continuous",
                 }
             )
             specification_rows.append(row)
@@ -401,22 +449,121 @@ def run_mvp3(
     ).reset_index()
     _save_table(support_table, tables / "mvp3_overlap_support.csv")
 
+    lagged_market = _build_lagged_market_data(
+        team_seasons,
+        market_values if market_values is not None else pd.DataFrame(),
+    )
+    lagged_term = "ssb_continuous:relative_log_market:market_gini"
+    lagged_result: dict[str, float | int] = {
+        "estimate": np.nan,
+        "ci_low": np.nan,
+        "ci_high": np.nan,
+        "p_value": np.nan,
+        "nobs": 0,
+    }
+    lagged_sign_share = np.nan
+    if not lagged_market.empty:
+        lagged_model = _fit_mvp3_model(lagged_market, "points_per_game", "ssb_continuous")
+        lagged_coefficient = _coefficient_table(lagged_model, [lagged_term])
+        lagged_coefficient["row_coverage"] = len(lagged_market) / len(team_seasons)
+        lagged_coefficient["league_seasons"] = lagged_market[
+            ["league_name", "season_year"]
+        ].drop_duplicates().shape[0]
+        lagged_coefficient["team_value_source"] = "preceding season, any covered league"
+        lagged_coefficient["inequality_source"] = "preceding season league composition"
+        _save_table(lagged_coefficient, tables / "mvp3_lagged_market_model.csv")
+        lagged_result = lagged_coefficient.iloc[0].to_dict()
+
+        lagged_leave_one_out = []
+        for league in sorted(lagged_market["league_name"].unique()):
+            subset = lagged_market[lagged_market["league_name"] != league]
+            fitted = _fit_mvp3_model(subset, "points_per_game", "ssb_continuous")
+            row = _coefficient_table(fitted, [lagged_term]).iloc[0].to_dict()
+            row["excluded_league"] = league
+            lagged_leave_one_out.append(row)
+        lagged_leave_one_out_frame = pd.DataFrame(lagged_leave_one_out)
+        _save_table(
+            lagged_leave_one_out_frame,
+            tables / "mvp3_lagged_market_leave_one_league_out.csv",
+        )
+        lagged_sign = np.sign(lagged_result["estimate"])
+        lagged_sign_share = float(
+            (np.sign(lagged_leave_one_out_frame["estimate"]) == lagged_sign).mean()
+        )
+
+        lagged_quantiles = lagged_market[["relative_log_market", "market_gini"]].quantile(
+            [0.1, 0.5, 0.9]
+        )
+        lagged_marginal_rows = []
+        for market_label, market_value in lagged_quantiles["relative_log_market"].items():
+            for gini_label, gini_value in lagged_quantiles["market_gini"].items():
+                effect = _linear_combination(
+                    lagged_model,
+                    {
+                        "ssb_continuous": 1.0,
+                        "ssb_continuous:relative_log_market": float(market_value),
+                        "ssb_continuous:market_gini": float(gini_value),
+                        lagged_term: float(market_value * gini_value),
+                    },
+                )
+                lagged_marginal_rows.append(
+                    {
+                        "relative_market_quantile": market_label,
+                        "market_gini_quantile": gini_label,
+                        "relative_log_market": market_value,
+                        "market_gini": gini_value,
+                        **effect,
+                    }
+                )
+        _save_table(
+            pd.DataFrame(lagged_marginal_rows),
+            tables / "mvp3_lagged_market_marginal_effects.csv",
+        )
+        lagged_coverage = (
+            lagged_market.groupby("league_name")
+            .agg(
+                team_seasons=("team_canonical", "size"),
+                seasons=("season_year", "nunique"),
+            )
+            .reset_index()
+        )
+        _save_table(lagged_coverage, tables / "mvp3_lagged_market_coverage.csv")
+
     timing_audit = pd.DataFrame(
         [
             {
-                "check": "article_interpretation",
+                "check": "article_wording",
                 "status": "claimed_pre_season",
-                "evidence": "The source article describes market value as a pre-season proxy.",
+                "evidence": "The source article calls the financial data pre-season on PDF page 10.",
             },
             {
                 "check": "row_level_snapshot_timestamp",
                 "status": "not_available",
-                "evidence": "The released standings input has no valuation snapshot timestamp.",
+                "evidence": "Neither the released standings nor the 451 Bronze CSVs contains a valuation timestamp.",
+            },
+            {
+                "check": "season_identifier",
+                "status": "season_only",
+                "evidence": "The scraper validates saison_id, which identifies a season but not an intra-season valuation date.",
+            },
+            {
+                "check": "release_archive_collection",
+                "status": "post_season_bulk_collection",
+                "evidence": "ZIP metadata dates all 451 historical value CSVs to 2026-03-18; the covered seasons end in 2024.",
+            },
+            {
+                "check": "lagged_market_sensitivity",
+                "status": "sign_compatible_not_precise",
+                "evidence": (
+                    f"Preceding-season model estimate {lagged_result['estimate']:.4f}, "
+                    f"95% CI [{lagged_result['ci_low']:.4f}, {lagged_result['ci_high']:.4f}], "
+                    f"n={int(lagged_result['nobs'])}."
+                ),
             },
             {
                 "check": "independent_temporal_verification",
-                "status": "pending",
-                "evidence": "A dated raw snapshot or archived source is required.",
+                "status": "not_verified",
+                "evidence": "The pre-season label cannot be independently established from the released row-level provenance.",
             },
         ]
     )
@@ -449,7 +596,7 @@ def run_mvp3(
     viable = len(clean) >= criteria["minimum_team_seasons"] and clean["market_gini"].std() > 0.02
     sign = np.sign(main["estimate"])
     loo_sign_share = float((np.sign(leave_one_out_frame["estimate"]) == sign).mean())
-    safe_specs = specifications[specifications["temporally_safe"]]
+    safe_specs = specifications[specifications["schedule_strength_temporally_safe"]]
     alternative_sign_share = float((np.sign(safe_specs["estimate"]) == sign).mean())
     hierarchical_sign_compatible = bool(
         np.sign(hierarchical_result.iloc[0]["estimate"]) == sign
@@ -474,14 +621,21 @@ def run_mvp3(
         "ci_high": float(main["ci_high"]),
         "p_value": float(main["p_value"]),
         "leave_one_league_out_sign_share": loo_sign_share,
-        "temporally_safe_alternative_sign_share": alternative_sign_share,
+        "schedule_strength_safe_alternative_sign_share": alternative_sign_share,
         "hierarchical_sign_compatible": hierarchical_sign_compatible,
         "minimum_support_cell_n": minimum_cell_n,
         "nonlinearity_p_value": float(nonlinear_test.pvalue),
         "market_timestamp_verified": False,
+        "lagged_market_n": int(lagged_result["nobs"]),
+        "lagged_market_coverage": float(lagged_result.get("row_coverage", np.nan)),
+        "lagged_market_triple_interaction": float(lagged_result["estimate"]),
+        "lagged_market_ci_low": float(lagged_result["ci_low"]),
+        "lagged_market_ci_high": float(lagged_result["ci_high"]),
+        "lagged_market_p_value": float(lagged_result["p_value"]),
+        "lagged_market_leave_one_league_out_sign_share": lagged_sign_share,
         "interpretation": (
-            "Exploratory moderation with robustness checks; row-level market-value timing "
-            "remains unverified."
+            "Observational moderation with sign-compatible lagged-value sensitivity; "
+            "same-season valuation timing is not independently verified."
         ),
     }
 

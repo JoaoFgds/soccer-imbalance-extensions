@@ -37,7 +37,11 @@ def fetch_reference(destination: Path) -> dict:
     release = session.get(RELEASE_API, timeout=60)
     release.raise_for_status()
     metadata = release.json()
-    wanted = {"analysis-inputs-v1.zip", "soccer-scraper-bronze-v1.zip"}
+    wanted = {
+        "analysis-inputs-v1.zip",
+        "market-values-bronze-v1.zip",
+        "soccer-scraper-bronze-v1.zip",
+    }
     records = []
     for asset in metadata["assets"]:
         if asset["name"] not in wanted:

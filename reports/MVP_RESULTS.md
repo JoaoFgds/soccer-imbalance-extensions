@@ -35,7 +35,7 @@ All estimates are exploratory associations, not causal effects.
 
 ### MVP 3: avançar
 
-- Evidence: `{"ci_high": -0.08491024971944383, "ci_low": -1.1953833469912285, "gini_sd": 0.11016435453636962, "hierarchical_sign_compatible": true, "interpretation": "Exploratory moderation with robustness checks; row-level market-value timing remains unverified.", "leave_one_league_out_sign_share": 1.0, "market_timestamp_verified": false, "minimum_support_cell_n": 429, "mvp": 3, "n": 5942, "nonlinearity_p_value": 0.05112136112382411, "p_value": 0.023840252072785773, "status": "avançar", "temporally_safe_alternative_sign_share": 1.0, "triple_interaction": -0.6401467983553362}`
+- Evidence: `{"ci_high": -0.08491024971944383, "ci_low": -1.1953833469912285, "gini_sd": 0.11016435453636962, "hierarchical_sign_compatible": true, "interpretation": "Observational moderation with sign-compatible lagged-value sensitivity; same-season valuation timing is not independently verified.", "lagged_market_ci_high": 0.1265965783459565, "lagged_market_ci_low": -1.070843457290739, "lagged_market_coverage": 0.854306864064603, "lagged_market_leave_one_league_out_sign_share": 1.0, "lagged_market_n": 5078, "lagged_market_p_value": 0.12221602379081757, "lagged_market_triple_interaction": -0.4721234394723913, "leave_one_league_out_sign_share": 1.0, "market_timestamp_verified": false, "minimum_support_cell_n": 429, "mvp": 3, "n": 5942, "nonlinearity_p_value": 0.05112136112382411, "p_value": 0.023840252072785773, "schedule_strength_safe_alternative_sign_share": 1.0, "status": "avançar", "triple_interaction": -0.6401467983553362}`
 
 ### MVP 4: avançar
 

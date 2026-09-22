@@ -6,6 +6,7 @@ from soccer_imbalance_extensions.data import (
     _parse_date,
     _parse_result,
     discover_source,
+    load_market_values,
     load_standings,
 )
 
@@ -42,3 +43,40 @@ def test_duplicate_standings_key_fails(tmp_path):
     layout = SourceLayout(tmp_path, source, tmp_path / "ssb.csv", tmp_path / "attendance.csv", tmp_path / "bronze")
     with pytest.raises(ValueError, match="duplicated"):
         load_standings(layout)
+
+
+def test_load_market_values_canonicalizes_and_skips_status(tmp_path):
+    market_root = tmp_path / "market"
+    market_root.mkdir()
+    pd.DataFrame(
+        [
+            {
+                "league_name": "league",
+                "season_year": 2020,
+                "club_name": "Clube Á",
+                "total_market_value_euros": 123.0,
+            }
+        ]
+    ).to_csv(market_root / "league_2020.csv", index=False)
+    pd.DataFrame([{"status": "Success"}]).to_csv(
+        market_root / "scraping_status.csv", index=False
+    )
+    layout = SourceLayout(
+        tmp_path,
+        tmp_path / "standings.csv",
+        tmp_path / "ssb.csv",
+        tmp_path / "attendance.csv",
+        tmp_path / "bronze",
+        market_root,
+    )
+
+    result = load_market_values(layout)
+
+    assert result.to_dict(orient="records") == [
+        {
+            "league_name": "league",
+            "season_year": 2020,
+            "team_canonical": "clubea",
+            "total_market_value_euros": 123.0,
+        }
+    ]

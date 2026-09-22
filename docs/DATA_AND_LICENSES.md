@@ -5,13 +5,14 @@
 | Source | URL / pattern | Access | Unit | Observed coverage | Missing / quality | Redistribution | MVPs |
 |---|---|---|---|---|---|---|---|
 | Published reproducibility release | `github.com/JoaoFgds/soccer-scraper/releases/tag/reproducibility-v1` | 2026-09-22 | team-season and team-match files | 5,944 standings rows; 306 league-seasons; 20 leagues; 2004–2024 | 2 unparsed dates and 1 unparsed result after fixture deduplication | Archives are downloaded to ignored local cache and are not republished | 1–5 |
+| Frozen market-value Bronze release | `market-values-bronze-v1.zip` in `reproducibility-v1` | 2026-09-22 | club-season | 451 CSVs; 8,703 rows before temporal joins | No valuation timestamp; ZIP entries dated 2026-03-18 | Archive remains in ignored local cache | 3 |
 | Transfermarkt team schedule pilot | `/fc-chelsea/spielplan/verein/631/saison_id/2024` | 2026-09-22 | team-match | Chelsea 2024/25 representative page | A page sample proves structure, not historical completeness | HTML cache ignored; URL, hash, size and checks only are published | 1, 2, 4, 5 |
 | Transfermarkt competition-value pilot | `/premier-league/startseite/wettbewerb/GB1/plus/?saison_id=2024` | 2026-09-22 | club-season | Premier League 2024 representative page | A page sample proves structure, not historical completeness | HTML cache ignored; URL, hash, size and checks only are published | 1, 3, 4, 5 |
 
-The executed full analysis read the already-downloaded public release from an
-external temporary directory. It did not copy raw data into Git. The acquisition
-command downloads the same two release assets, verifies the publisher-provided
-SHA-256 values, and extracts them under ignored `data/raw/` storage.
+The executed analysis read the public release from ignored local storage. It did
+not copy raw data into Git. The acquisition command downloads all three required
+release assets, verifies the publisher-provided SHA-256 values, and extracts them
+under ignored `data/raw/` storage.
 
 ## Reference-project licensing boundary
 

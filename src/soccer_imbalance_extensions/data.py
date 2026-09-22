@@ -25,6 +25,7 @@ class SourceLayout:
     schedule_balance: Path
     occupancy: Path
     bronze: Path
+    market_values: Path | None = None
 
 
 def discover_source(root: Path) -> SourceLayout:
@@ -33,6 +34,8 @@ def discover_source(root: Path) -> SourceLayout:
     direct_bronze = root / "bronze/bronze/scraper"
     fetched_analysis = root / "extracted/analysis-inputs-v1/source"
     fetched_bronze = root / "extracted/soccer-scraper-bronze-v1/bronze/scraper"
+    direct_market_values = root / "market-values/bronze"
+    fetched_market_values = root / "extracted/market-values-bronze-v1/bronze"
     analysis = direct_analysis if direct_analysis.exists() else fetched_analysis
     bronze = direct_bronze if direct_bronze.exists() else fetched_bronze
     layout = SourceLayout(
@@ -41,11 +44,66 @@ def discover_source(root: Path) -> SourceLayout:
         schedule_balance=analysis / "strength_schedule_balance_ranking.csv",
         occupancy=analysis / "occupancy_audit_audience_filled_fb.csv",
         bronze=bronze,
+        market_values=(
+            direct_market_values
+            if direct_market_values.exists()
+            else fetched_market_values if fetched_market_values.exists() else None
+        ),
     )
     missing = [str(path) for path in layout.__dict__.values() if isinstance(path, Path) and not path.exists()]
     if missing:
         raise FileNotFoundError("Missing required source paths: " + ", ".join(missing))
     return layout
+
+
+def load_market_values(layout: SourceLayout) -> pd.DataFrame:
+    """Load the frozen historical market-value Bronze files with canonical team keys."""
+    if layout.market_values is None:
+        return pd.DataFrame(
+            columns=[
+                "league_name",
+                "season_year",
+                "team_canonical",
+                "total_market_value_euros",
+            ]
+        )
+
+    required = {
+        "league_name",
+        "season_year",
+        "club_name",
+        "total_market_value_euros",
+    }
+    frames = []
+    for source in sorted(layout.market_values.glob("*.csv")):
+        if source.name == "scraping_status.csv":
+            continue
+        frame = pd.read_csv(source)
+        missing = required.difference(frame.columns)
+        if missing:
+            raise ValueError(f"Market-value file {source} missing columns: {sorted(missing)}")
+        frames.append(frame.loc[:, sorted(required)])
+    if not frames:
+        raise ValueError(f"No market-value Bronze CSV files found in {layout.market_values}")
+
+    market_values = pd.concat(frames, ignore_index=True)
+    market_values["season_year"] = pd.to_numeric(
+        market_values["season_year"], errors="raise"
+    ).astype(int)
+    market_values["total_market_value_euros"] = pd.to_numeric(
+        market_values["total_market_value_euros"], errors="raise"
+    )
+    market_values["team_canonical"] = market_values["club_name"].map(canonicalize)
+    key = ["season_year", "team_canonical"]
+    if market_values.duplicated(key).any():
+        examples = market_values.loc[market_values.duplicated(key, keep=False), key].head()
+        raise ValueError(
+            "Market-value team-season key is duplicated: "
+            f"{examples.to_dict(orient='records')}"
+        )
+    return market_values[
+        ["league_name", "season_year", "team_canonical", "total_market_value_euros"]
+    ]
 
 
 def load_standings(layout: SourceLayout) -> pd.DataFrame:

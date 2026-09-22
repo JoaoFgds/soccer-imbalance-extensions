@@ -42,9 +42,10 @@ reference release locally:
 uv run --locked sie fetch-reference
 ```
 
-The command downloads `analysis-inputs-v1.zip` and
-`soccer-scraper-bronze-v1.zip` from the public `reproducibility-v1` release,
-verifies their SHA-256 digests, and extracts them under `data/raw/reference/`.
+The command downloads `analysis-inputs-v1.zip`, `market-values-bronze-v1.zip`
+and `soccer-scraper-bronze-v1.zip` from the public `reproducibility-v1`
+release, verifies their SHA-256 digests, and extracts them under
+`data/raw/reference/`.
 
 Run the two-request live-source pilot:
 
@@ -78,7 +79,7 @@ The reference execution covered 5,944 team-seasons, 306 league-seasons and
 |---:|---|---|
 | 1 | Continuous SSB coefficient `0.0061`, 95% CI `[-0.0279, 0.0402]`; 99.97% team-season coverage | Reformulate toward heterogeneity; the average association is a precise null |
 | 2 | Three-match shock coefficient `0.0119` points per 100 Elo, 95% CI `[-0.0055, 0.0294]`; windows 2 and 5 also null | Discard the tested short-run linear mechanism |
-| 3 | Three-way SSB/resource/inequality interaction `-0.6401`, 95% CI `[-1.1954, -0.0849]`; the sign persists in 20/20 league exclusions and all temporally safe alternatives | Advance, conditional on market-timestamp audit |
+| 3 | Same-season interaction `-0.6401`, 95% CI `[-1.1954, -0.0849]`; preceding-season sensitivity `-0.4721`, 95% CI `[-1.0708, 0.1266]`, with the negative sign in 20/20 league exclusions | Advance as observational heterogeneity; no causal or verified pre-season claim |
 | 4 | 289 league-seasons, two nulls and 5.78 million valid draws; 22 nominal findings and zero after within-null FDR control | Advance as a strong null/benchmark contribution |
 | 5 | Attendance effect `-0.0043` log points per 100 Elo, 95% CI `[-0.0108, 0.0022]`; 99.72% attendance availability | Discard the tested linear attendance mechanism |
 
@@ -105,8 +106,11 @@ advances because its methodological null benchmark is the contribution.
 - Round permutations do not reproduce unobserved commercial, policing or
   stadium-sharing constraints; 17 league-seasons fail market-rank integration
   and are reported explicitly.
-- The article's stated pre-season interpretation of market value is accepted for
-  this stage; a full paper should audit snapshot timestamps.
+- The article calls the financial data pre-season, but the 451 released Bronze
+  files were bulk-collected on 2026-03-18 and contain no valuation timestamp.
+  The `saison_id` proves the selected season, not the within-season snapshot.
+  Preceding-season values support the same qualitative pattern with lower
+  precision, so MVP 3 remains observational rather than causal.
 - Match points and attendance models remain observational.
 - Two dates and one result could not be parsed; they are reported, not silently
   corrected.

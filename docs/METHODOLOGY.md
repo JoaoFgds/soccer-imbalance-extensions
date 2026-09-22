@@ -19,8 +19,11 @@ pre-match rating.
   market-value Gini, and their three-way interaction. Robustness checks include
   marginal effects at joint 10th/50th/90th percentiles, leave-one-league-out
   refits, quadratic and cubic-spline functional forms, a league random-intercept
-  model, alternative outcomes, two temporally safe strength definitions, and a
-  separately labelled post-season final-rank diagnostic.
+  model, alternative outcomes, one verified temporally safe strength definition
+  (pre-match Elo), and two separately labelled timing diagnostics (same-season
+  market value and post-season final rank). A preceding-season market-value
+  sensitivity uses each team's prior value, including its prior league when
+  covered, and the prior composition of the current league.
 - MVP 4: 10,000 seeded permutations under both global-round and phase-preserving
   nulls for every usable league-season. Both preserve fixtures, home/away
   assignments, and complete rounds; the second also retains each round within
@@ -35,8 +38,10 @@ All estimates are associations. The MVPs do not justify causal claims.
 
 ## Assumptions
 
-The user explicitly designated the article as the source of truth. Accordingly,
-the market-value snapshot is interpreted as the article's pre-season strength
-proxy for exploratory analysis. The released row-level input has no valuation
-snapshot timestamp, so independent temporal verification remains a prerequisite
-for stronger temporal or causal language.
+The article labels the financial data as pre-season, but this label is not
+independently recoverable from the released provenance. The 451 Bronze CSVs have
+ZIP timestamps of 2026-03-18, after the covered seasons, and neither they nor the
+analysis input contains a valuation timestamp. The scraper's `saison_id` check
+validates the selected season only. Consequently, same-season market-value models
+are descriptive. The preceding-season sensitivity is temporally ordered but may
+select against newly promoted or otherwise uncovered clubs.
