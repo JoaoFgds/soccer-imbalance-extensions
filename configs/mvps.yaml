@@ -11,6 +11,14 @@ mvp4:
   batch_size: 500
 mvp5:
   excluded_seasons: [2020, 2021]
+mechanism:
+  window: 3
+  minimum_periods: 3
+  short_rest_max_days: 4
+  long_rest_min_days: 7
+  rest_days_cap: 30
+  equivalence_margin_points: 0.05
+  alpha: 0.05
 criteria:
   minimum_team_seasons: 500
   minimum_match_rows: 5000

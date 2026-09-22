@@ -101,6 +101,8 @@ advances because its methodological null benchmark is the contribution.
 - `reports/ROBUSTNESS_REVIEW.md`: second-pass stress tests and updated evidence
   classification.
 - `docs/`: original-study boundary, traceability, methodology, and licensing.
+- `docs/MECHANISM_FALSIFICATION_PLAN.md`: timestamped specification for the
+  post-MVP mechanism gate.
 - `data/`: local raw/interim/processed files; contents are ignored by Git.
 
 ## Important limitations
