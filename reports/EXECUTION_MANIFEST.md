@@ -1,7 +1,7 @@
 # Execution manifest
 
 - Execution date: 2026-09-22 (America/Sao_Paulo)
-- Results-generating commit: `875bf40`
+- Results-generating commit: `a619cfb`
 - Python: 3.12.11
 - Dependency resolution: `uv.lock`
 - Random seed: `20260922`
@@ -10,7 +10,7 @@
 - Valid league-seasons: 306
 - Unique fixtures: 112,094
 - Raw schedule views: 224,120
-- Tests: 18 passed
+- Tests: 20 passed
 - Lint: Ruff passed
 - Git diff whitespace validation: passed
 - Acquisition idempotence: rerun reused all three cached archives and revalidated
@@ -30,6 +30,11 @@
   nulls, 10,000 permutations per league-season/source/null and 11,500,000 valid
   draws. Four Elo rows survived within-source/null FDR correction, but zero
   findings survived with both strength sources.
+- Mechanism gate: pre-analysis plan committed as `b30e3e1`; 160,382 ordered
+  team-match rows, 5,078 team-seasons and 87,825 fixtures. Zero of four
+  directional implications passed Holm correction. Resource-related future
+  controls passed equivalence, while the corresponding past effects were bounded
+  inside ±0.05 points.
 
 Commands executed for the final evidence:
 
