@@ -97,6 +97,7 @@ advances because its methodological null benchmark is the contribution.
 - `results/tables/`: aggregate coefficients, coverage, sensitivities and decisions.
 - `results/figures/`: one diagnostic visualization per MVP.
 - `reports/`: data diagnostics, source pilot and analytical reports.
+- `reports/TEMPORAL_AUDIT.md`: market-value timing audit and decision boundary.
 - `docs/`: original-study boundary, traceability, methodology, and licensing.
 - `data/`: local raw/interim/processed files; contents are ignored by Git.
 
