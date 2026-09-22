@@ -1,7 +1,7 @@
 # Execution manifest
 
 - Execution date: 2026-09-22 (America/Sao_Paulo)
-- Results-generating commit: `fd0b44e`
+- Results-generating commit: pending robustness-pass commit
 - Python: 3.12.11
 - Dependency resolution: `uv.lock`
 - Random seed: `20260922`
@@ -10,7 +10,7 @@
 - Valid league-seasons: 306
 - Unique fixtures: 112,094
 - Raw schedule views: 224,120
-- Tests: 16 passed
+- Tests: 18 passed
 - Lint: Ruff passed
 - Git diff whitespace validation: passed
 - Acquisition idempotence: rerun reused all three cached archives and revalidated
@@ -20,12 +20,16 @@
 - Reference repository before and after: clean `master` at
   `54b4625be98d9710fc41e72bade8f2e68049c920`
 - MVP 3 robustness: 20/20 same-season and 20/20 preceding-season
-  leave-one-league-out estimates retained the negative interaction sign. All 3/3
-  outcome specifications using verified pre-match Elo also retained it. The lagged
-  model covered 5,078 rows and 288 league-seasons.
-- MVP 4 robustness: 289 league-seasons, two nulls, 10,000 permutations per
-  league-season/null and 5,780,000 valid draws; zero upper-tail findings after
-  within-null FDR correction.
+  leave-one-league-out estimates retained the negative interaction sign. All 6/6
+  outcome specifications using dynamic pre-match or fixed season-start Elo retained
+  it. The fixed-start estimate was -0.7631 (95% CI [-1.4285, -0.0976]); the late
+  holdout retained the sign but not precision. Conservative 20-league clustering
+  widened the primary CI across zero. The lagged model covered 5,078 rows and 288
+  league-seasons, with material selection on club market value.
+- MVP 4 robustness: 289 market-value and 286 fixed-start-Elo league-seasons, two
+  nulls, 10,000 permutations per league-season/source/null and 11,500,000 valid
+  draws. Four Elo rows survived within-source/null FDR correction, but zero
+  findings survived with both strength sources.
 
 Commands executed for the final evidence:
 

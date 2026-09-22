@@ -64,6 +64,21 @@ def test_permutation_null_is_seeded_and_complete():
     np.testing.assert_array_equal(first, second)
 
 
+def test_permutation_null_is_invariant_to_monotonic_strength_transform():
+    frame = round_robin_frame()
+    ordinal = {team: rank for rank, team in enumerate(["a", "b", "c", "d", "e"], 1)}
+    nonlinear = {team: rank**3 for team, rank in ordinal.items()}
+
+    ordinal_draws = _permutation_null(
+        frame, ordinal, 20, np.random.default_rng(7), "global_round", batch_size=7
+    )
+    nonlinear_draws = _permutation_null(
+        frame, nonlinear, 20, np.random.default_rng(7), "global_round", batch_size=7
+    )
+
+    np.testing.assert_allclose(ordinal_draws, nonlinear_draws, atol=1e-15)
+
+
 def test_lagged_market_data_uses_only_preceding_season_values():
     team_seasons = pd.DataFrame(
         [

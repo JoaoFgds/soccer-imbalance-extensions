@@ -18,6 +18,8 @@ analysis input provides only season-level values.
 | Article wording | The paper calls the financial data “pre-season” in its results discussion | This is a source interpretation, not independently reproducible row-level provenance |
 | Public page semantics | Transfermarkt's season page lists a selectable season and total market values, but does not expose an intra-season valuation date in the captured schema | The page supports season selection, not temporal placement |
 | Ordered sensitivity | Prior-season values cover 5,078 rows (85.4%) and retain a negative interaction in 20/20 league exclusions | The qualitative result is compatible with ordered information, but the confidence interval crosses zero |
+| Selection into ordered sensitivity | Retained observations have much higher current log market value than excluded observations (standardized mean difference 0.927) | The lagged sample is not a neutral substitute for the full sample |
+| Era stability | The lagged estimate is positive in 2004–2010 and negative in 2011–2017 and 2018–2024; all era intervals cross zero | A homogeneous historical effect is not supported |
 
 The article and public page used for this check are available at the [author's
 publication page](https://pedroolmo.github.io/research/publications.html) and the
@@ -38,6 +40,13 @@ The preceding-season sensitivity is the appropriate temporal robustness check:
 - p-value: `0.1222`;
 - observations: `5,078`;
 - league-exclusion sign share: `20/20`.
+
+The precision loss is not attributable only to changing the exposure. On the
+lagged-eligible sample, the current-value estimate is already `-0.5597`, with 95%
+CI `[-1.1903, 0.0709]`; changing to lagged values moves it to `-0.4721`. This
+decomposition and the selection imbalance mean the lagged model should be treated
+as a demanding but selected sensitivity analysis, not as an unquestioned gold
+standard.
 
 ## What would change the decision
 

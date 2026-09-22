@@ -1,2 +1,2 @@
 term,estimate,std_error,ci_low,ci_high,p_value,nobs,r_squared,row_coverage,league_seasons,team_value_source,inequality_source
-ssb_continuous:relative_log_market:market_gini,-0.4721234394723913,0.3054750100210897,-1.070843457290739,0.1265965783459565,0.12221602379081757,5078,0.36763429600959585,0.854306864064603,288,"preceding season, any covered league",preceding season league composition
+ssb_continuous:relative_log_market:market_gini,-0.4721234394723903,0.3054750100210863,-1.0708434572907315,0.12659657834595095,0.12221602379081425,5078,0.36763429600959596,0.854306864064603,288,"preceding season, any covered league",preceding season league composition

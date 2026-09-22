@@ -19,16 +19,23 @@ pre-match rating.
   market-value Gini, and their three-way interaction. Robustness checks include
   marginal effects at joint 10th/50th/90th percentiles, leave-one-league-out
   refits, quadratic and cubic-spline functional forms, a league random-intercept
-  model, alternative outcomes, one verified temporally safe strength definition
-  (pre-match Elo), and two separately labelled timing diagnostics (same-season
-  market value and post-season final rank). A preceding-season market-value
-  sensitivity uses each team's prior value, including its prior league when
-  covered, and the prior composition of the current league.
+  model, alternative outcomes, two temporally safe schedule-strength definitions
+  (dynamic pre-match Elo and fixed season-start Elo), and two separately labelled
+  timing diagnostics (same-season market value and post-season final rank). A
+  preceding-season market-value sensitivity uses each team's prior value,
+  including its prior league when covered, and the prior composition of the
+  current league. Additional stress tests cluster at the league level with a
+  small-sample t reference, reserve 2018–2024 as a temporal holdout, split the
+  sample into eras, and decompose lagged-model changes into sample-selection and
+  exposure-timing components.
 - MVP 4: 10,000 seeded permutations under both global-round and phase-preserving
-  nulls for every usable league-season. Both preserve fixtures, home/away
-  assignments, and complete rounds; the second also retains each round within
-  its season half. Empirical upper-tail probabilities receive Benjamini-Hochberg
-  correction separately by null. These nulls do not encode commercial or policing
+  nulls for every usable league-season and each of two pre-schedule strength
+  proxies: market-value rank and fixed season-start Elo rank. Both nulls preserve
+  fixtures, home/away assignments, and complete rounds; the second also retains
+  each round within its season half. Empirical upper-tail probabilities receive
+  Benjamini-Hochberg correction separately by strength proxy and null. Cross-proxy
+  rank agreement and findings surviving FDR under both strength definitions are
+  reported explicitly. These nulls do not encode commercial or policing
   constraints absent from the source.
 - MVP 5: within-home-team-season OLS for log observed attendance, excluding
   2020–2021 and controlling for own/opponent Elo, opponent market value, rest,
@@ -43,5 +50,7 @@ independently recoverable from the released provenance. The 451 Bronze CSVs have
 ZIP timestamps of 2026-03-18, after the covered seasons, and neither they nor the
 analysis input contains a valuation timestamp. The scraper's `saison_id` check
 validates the selected season only. Consequently, same-season market-value models
-are descriptive. The preceding-season sensitivity is temporally ordered but may
-select against newly promoted or otherwise uncovered clubs.
+are descriptive. The preceding-season sensitivity is temporally ordered but
+selects materially higher-value clubs: the standardized mean difference in
+same-season log market value between retained and excluded observations is 0.927.
+It is therefore a useful timing stress test, not an unbiased replacement sample.

@@ -111,6 +111,33 @@ def continuous_ssb(team_matches: pd.DataFrame) -> pd.DataFrame:
     return result.rename(columns={"ssb_continuous_strength_sd": "opponent_strength_sd"})
 
 
+def season_start_elo_ssb(team_matches: pd.DataFrame) -> pd.DataFrame:
+    """Calculate SSB from one fixed, strictly prior rating per team-season."""
+    key = ["league_name", "season_year", "team_canonical"]
+    initial = (
+        team_matches.sort_values(key + ["kickoff", "match_id"])
+        .groupby(key, as_index=False)
+        .first()[key + ["own_elo_pre"]]
+        .rename(
+            columns={
+                "team_canonical": "opponent_canonical",
+                "own_elo_pre": "opponent_season_start_elo",
+            }
+        )
+    )
+    working = team_matches.merge(
+        initial,
+        on=["league_name", "season_year", "opponent_canonical"],
+        how="left",
+        validate="many_to_one",
+    )
+    return schedule_balance_from_strength(
+        working,
+        working["opponent_season_start_elo"],
+        "ssb_preseason_elo",
+    )
+
+
 def gini(values: pd.Series) -> float:
     array = np.sort(values.dropna().to_numpy(dtype=float))
     array = array[array >= 0]

@@ -11,10 +11,15 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from scipy.stats import spearmanr
+from scipy.stats import rankdata, spearmanr
 from statsmodels.stats.multitest import multipletests
 
-from .features import continuous_ssb, gini, schedule_balance_from_strength
+from .features import (
+    continuous_ssb,
+    gini,
+    schedule_balance_from_strength,
+    season_start_elo_ssb,
+)
 
 
 def _coefficient_table(model, terms: list[str]) -> pd.DataFrame:
@@ -75,13 +80,25 @@ def _linear_combination(model, weights: dict[str, float]) -> dict[str, float]:
     }
 
 
-def _fit_mvp3_model(data: pd.DataFrame, outcome: str, ssb: str):
+def _fit_mvp3_model(
+    data: pd.DataFrame,
+    outcome: str,
+    ssb: str,
+    cluster_column: str = "league_season",
+    use_t: bool = False,
+):
     formula = (
         f"{outcome} ~ {ssb} * relative_log_market * market_gini "
         "+ C(league_name) + C(season_year)"
     )
     return smf.ols(formula, data=data).fit(
-        cov_type="cluster", cov_kwds={"groups": data["league_season"]}
+        cov_type="cluster",
+        cov_kwds={
+            "groups": data[cluster_column],
+            "use_correction": True,
+            "df_correction": True,
+        },
+        use_t=use_t,
     )
 
 
@@ -293,6 +310,7 @@ def run_mvp3(
         -strength_matches["opponent_final_position"],
         "ssb_final_rank",
     )
+    preseason_elo_ssb = season_start_elo_ssb(team_matches)
     balance_keys = ["league_name", "season_year", "team_canonical"]
     data = data.merge(
         market_ssb[balance_keys + ["ssb_market_value"]],
@@ -301,6 +319,11 @@ def run_mvp3(
         validate="one_to_one",
     ).merge(
         final_rank_ssb[balance_keys + ["ssb_final_rank"]],
+        on=balance_keys,
+        how="left",
+        validate="one_to_one",
+    ).merge(
+        preseason_elo_ssb[balance_keys + ["ssb_preseason_elo"]],
         on=balance_keys,
         how="left",
         validate="one_to_one",
@@ -390,7 +413,12 @@ def run_mvp3(
 
     specification_rows = []
     for outcome in ("points_per_game", "goal_difference_per_game", "win_rate"):
-        for balance in ("ssb_continuous", "ssb_market_value", "ssb_final_rank"):
+        for balance in (
+            "ssb_continuous",
+            "ssb_preseason_elo",
+            "ssb_market_value",
+            "ssb_final_rank",
+        ):
             specification = data.dropna(
                 subset=[outcome, balance, "relative_log_market", "market_gini"]
             ).copy()
@@ -401,7 +429,8 @@ def run_mvp3(
                 {
                     "outcome": outcome,
                     "schedule_balance": balance,
-                    "schedule_strength_temporally_safe": balance == "ssb_continuous",
+                    "schedule_strength_temporally_safe": balance
+                    in {"ssb_continuous", "ssb_preseason_elo"},
                 }
             )
             specification_rows.append(row)
@@ -450,7 +479,7 @@ def run_mvp3(
     _save_table(support_table, tables / "mvp3_overlap_support.csv")
 
     lagged_market = _build_lagged_market_data(
-        team_seasons,
+        data,
         market_values if market_values is not None else pd.DataFrame(),
     )
     lagged_term = "ssb_continuous:relative_log_market:market_gini"
@@ -519,15 +548,178 @@ def run_mvp3(
             pd.DataFrame(lagged_marginal_rows),
             tables / "mvp3_lagged_market_marginal_effects.csv",
         )
-        lagged_coverage = (
-            lagged_market.groupby("league_name")
+        lagged_keys = ["league_name", "season_year", "team_canonical"]
+        lagged_available = lagged_market[lagged_keys].assign(lagged_available=1)
+        selection = data.merge(
+            lagged_available,
+            on=lagged_keys,
+            how="left",
+            validate="one_to_one",
+        )
+        selection["lagged_available"] = selection["lagged_available"].fillna(0).astype(int)
+
+        coverage_by_league = (
+            selection.groupby("league_name")
             .agg(
-                team_seasons=("team_canonical", "size"),
-                seasons=("season_year", "nunique"),
+                total_team_seasons=("team_canonical", "size"),
+                lagged_team_seasons=("lagged_available", "sum"),
+                total_seasons=("season_year", "nunique"),
             )
             .reset_index()
         )
+        coverage_by_league["coverage"] = (
+            coverage_by_league["lagged_team_seasons"]
+            / coverage_by_league["total_team_seasons"]
+        )
+        lagged_coverage = coverage_by_league
         _save_table(lagged_coverage, tables / "mvp3_lagged_market_coverage.csv")
+
+        coverage_by_season = (
+            selection.groupby("season_year")
+            .agg(
+                total_team_seasons=("team_canonical", "size"),
+                lagged_team_seasons=("lagged_available", "sum"),
+            )
+            .reset_index()
+        )
+        coverage_by_season["coverage"] = (
+            coverage_by_season["lagged_team_seasons"]
+            / coverage_by_season["total_team_seasons"]
+        )
+        _save_table(
+            coverage_by_season,
+            tables / "mvp3_lagged_market_coverage_by_season.csv",
+        )
+
+        selection_rows = []
+        for variable in (
+            "points_per_game",
+            "ssb_continuous",
+            "log_market_value",
+            "position_old",
+        ):
+            excluded = selection.loc[selection["lagged_available"] == 0, variable].dropna()
+            included = selection.loc[selection["lagged_available"] == 1, variable].dropna()
+            pooled_sd = np.sqrt((excluded.var() + included.var()) / 2)
+            selection_rows.append(
+                {
+                    "variable": variable,
+                    "excluded_n": len(excluded),
+                    "excluded_mean": excluded.mean(),
+                    "included_n": len(included),
+                    "included_mean": included.mean(),
+                    "standardized_mean_difference": (
+                        (included.mean() - excluded.mean()) / pooled_sd
+                        if pooled_sd > 0
+                        else np.nan
+                    ),
+                }
+            )
+        _save_table(
+            pd.DataFrame(selection_rows),
+            tables / "mvp3_lagged_market_selection_profile.csv",
+        )
+
+        current_restricted = clean.merge(
+            lagged_available[lagged_keys],
+            on=lagged_keys,
+            how="inner",
+            validate="one_to_one",
+        )
+        decomposition_rows = []
+        for label, frame in (
+            ("current_value_full_sample", clean),
+            ("current_value_lagged_sample", current_restricted),
+            ("lagged_value_lagged_sample", lagged_market),
+        ):
+            fitted = _fit_mvp3_model(frame, "points_per_game", "ssb_continuous")
+            row = _coefficient_table(fitted, [lagged_term]).iloc[0].to_dict()
+            row["specification"] = label
+            decomposition_rows.append(row)
+        _save_table(
+            pd.DataFrame(decomposition_rows),
+            tables / "mvp3_lagged_market_decomposition.csv",
+        )
+
+    temporal_rows = []
+    periods = (
+        ("early", 2004, 2010),
+        ("middle", 2011, 2017),
+        ("late_holdout", 2018, 2024),
+        ("pre_holdout", 2004, 2017),
+        ("full", 2004, 2024),
+    )
+    for value_source, frame in (
+        ("same_season", clean),
+        ("preceding_season", lagged_market),
+    ):
+        if frame.empty:
+            continue
+        for period, first_year, last_year in periods:
+            subset = frame[
+                frame["season_year"].between(first_year, last_year, inclusive="both")
+            ]
+            if len(subset) < 500:
+                continue
+            fitted = _fit_mvp3_model(subset, "points_per_game", "ssb_continuous")
+            row = _coefficient_table(fitted, [triple_term]).iloc[0].to_dict()
+            row.update(
+                {
+                    "value_source": value_source,
+                    "period": period,
+                    "first_year": first_year,
+                    "last_year": last_year,
+                }
+            )
+            temporal_rows.append(row)
+    temporal_validation = pd.DataFrame(temporal_rows)
+    _save_table(temporal_validation, tables / "mvp3_temporal_validation.csv")
+
+    preseason_clean = data.dropna(
+        subset=[
+            "points_per_game",
+            "ssb_preseason_elo",
+            "relative_log_market",
+            "market_gini",
+        ]
+    ).copy()
+    cluster_rows = []
+    cluster_scenarios = [
+        ("same_season_dynamic_elo", clean, "ssb_continuous"),
+        ("same_season_fixed_start_elo", preseason_clean, "ssb_preseason_elo"),
+    ]
+    if not lagged_market.empty:
+        cluster_scenarios.extend(
+            [
+                ("same_season_lagged_sample", current_restricted, "ssb_continuous"),
+                ("preceding_season_dynamic_elo", lagged_market, "ssb_continuous"),
+            ]
+        )
+    for specification, frame, balance in cluster_scenarios:
+        term = f"{balance}:relative_log_market:market_gini"
+        for cluster_label, cluster_column, use_t in (
+            ("league_season", "league_season", False),
+            ("league_small_sample_t", "league_name", True),
+        ):
+            fitted = _fit_mvp3_model(
+                frame,
+                "points_per_game",
+                balance,
+                cluster_column=cluster_column,
+                use_t=use_t,
+            )
+            row = _coefficient_table(fitted, [term]).iloc[0].to_dict()
+            row.update(
+                {
+                    "specification": specification,
+                    "schedule_balance": balance,
+                    "cluster": cluster_label,
+                    "clusters": frame[cluster_column].nunique(),
+                }
+            )
+            cluster_rows.append(row)
+    cluster_sensitivity = pd.DataFrame(cluster_rows)
+    _save_table(cluster_sensitivity, tables / "mvp3_cluster_sensitivity.csv")
 
     timing_audit = pd.DataFrame(
         [
@@ -602,12 +794,34 @@ def run_mvp3(
         np.sign(hierarchical_result.iloc[0]["estimate"]) == sign
         and hierarchical_model.converged
     )
+    holdout = temporal_validation[
+        (temporal_validation["value_source"] == "same_season")
+        & (temporal_validation["period"] == "late_holdout")
+    ].iloc[0]
+    league_cluster = cluster_sensitivity[
+        (cluster_sensitivity["specification"] == "same_season_dynamic_elo")
+        & (cluster_sensitivity["cluster"] == "league_small_sample_t")
+    ].iloc[0]
+    preseason_elo_result = cluster_sensitivity[
+        (cluster_sensitivity["specification"] == "same_season_fixed_start_elo")
+        & (cluster_sensitivity["cluster"] == "league_season")
+    ].iloc[0]
+    temporal_sign_compatible = bool(np.sign(holdout["estimate"]) == sign)
+    conservative_cluster_sign_compatible = bool(
+        np.sign(league_cluster["estimate"]) == sign
+    )
+    preseason_elo_sign_compatible = bool(
+        np.sign(preseason_elo_result["estimate"]) == sign
+    )
     minimum_cell_n = int(support_table["n"].min())
     meaningful = bool(marginal["estimate"].abs().max() >= criteria["sesoi_ppg_per_ssb_unit"])
     robust = (
         loo_sign_share >= 0.8
         and alternative_sign_share >= 0.5
         and hierarchical_sign_compatible
+        and temporal_sign_compatible
+        and conservative_cluster_sign_compatible
+        and preseason_elo_sign_compatible
         and minimum_cell_n >= 100
     )
     status = "avançar" if viable and robust and meaningful else "reformular"
@@ -633,9 +847,21 @@ def run_mvp3(
         "lagged_market_ci_high": float(lagged_result["ci_high"]),
         "lagged_market_p_value": float(lagged_result["p_value"]),
         "lagged_market_leave_one_league_out_sign_share": lagged_sign_share,
+        "holdout_triple_interaction": float(holdout["estimate"]),
+        "holdout_ci_low": float(holdout["ci_low"]),
+        "holdout_ci_high": float(holdout["ci_high"]),
+        "holdout_p_value": float(holdout["p_value"]),
+        "league_cluster_ci_low": float(league_cluster["ci_low"]),
+        "league_cluster_ci_high": float(league_cluster["ci_high"]),
+        "league_cluster_p_value": float(league_cluster["p_value"]),
+        "preseason_elo_triple_interaction": float(preseason_elo_result["estimate"]),
+        "preseason_elo_ci_low": float(preseason_elo_result["ci_low"]),
+        "preseason_elo_ci_high": float(preseason_elo_result["ci_high"]),
+        "preseason_elo_p_value": float(preseason_elo_result["p_value"]),
         "interpretation": (
-            "Observational moderation with sign-compatible lagged-value sensitivity; "
-            "same-season valuation timing is not independently verified."
+            "Observational moderation with sign-compatible temporal holdout and fixed "
+            "season-start Elo; conservative league-clustered and lagged-value intervals "
+            "include zero."
         ),
     }
 
@@ -701,13 +927,18 @@ def _permutation_null(
             tie_breakers[opponent_number, :count] = opponent_fixtures[
                 "tie_breaker"
             ].to_numpy(dtype=float)
-        market_ranks = np.asarray([ranks[opponent] for opponent in opponents], dtype=float)
-        market_centered = market_ranks - market_ranks.mean()
+        strength_ranks = rankdata(
+            np.asarray([ranks[opponent] for opponent in opponents], dtype=float),
+            method="average",
+        )
+        market_centered = strength_ranks - strength_ranks.mean()
         order_centered = np.arange(len(opponents), dtype=float)
         order_centered -= order_centered.mean()
         denominator = np.sqrt(
             np.sum(order_centered**2) * np.sum(market_centered**2)
         )
+        if denominator <= 0:
+            continue
         team_arrays.append((occurrence_rounds, tie_breakers, market_centered, denominator))
     if len(team_arrays) < 4:
         return np.asarray([])
@@ -741,86 +972,169 @@ def _permutation_null(
     return draws
 
 
-def run_mvp4(matches: pd.DataFrame, standings: pd.DataFrame, tables: Path, figures: Path, config: dict, seed: int) -> dict:
-    rng = np.random.default_rng(seed)
+def run_mvp4(
+    matches: pd.DataFrame,
+    standings: pd.DataFrame,
+    tables: Path,
+    figures: Path,
+    config: dict,
+    seed: int,
+) -> dict:
     selected = matches.copy()
     rank_frame = standings.copy()
-    rank_frame["market_rank"] = rank_frame.groupby(["league_name", "season_year"])["total_market_value_euros"].rank(ascending=False, method="first")
-    rank_maps = {
+    rank_frame["market_rank"] = rank_frame.groupby(
+        ["league_name", "season_year"]
+    )["total_market_value_euros"].rank(ascending=False, method="first")
+    market_maps = {
         key: dict(zip(frame["team_canonical"], frame["market_rank"]))
         for key, frame in rank_frame.groupby(["league_name", "season_year"])
     }
+
+    home_start = selected[
+        [
+            "league_name",
+            "season_year",
+            "kickoff",
+            "match_id",
+            "home_team_canonical",
+            "home_elo_pre",
+        ]
+    ].rename(columns={"home_team_canonical": "team_canonical", "home_elo_pre": "elo"})
+    away_start = selected[
+        [
+            "league_name",
+            "season_year",
+            "kickoff",
+            "match_id",
+            "away_team_canonical",
+            "away_elo_pre",
+        ]
+    ].rename(columns={"away_team_canonical": "team_canonical", "away_elo_pre": "elo"})
+    season_start = (
+        pd.concat([home_start, away_start], ignore_index=True)
+        .sort_values(
+            ["league_name", "season_year", "team_canonical", "kickoff", "match_id"]
+        )
+        .groupby(["league_name", "season_year", "team_canonical"], as_index=False)
+        .first()
+    )
+    season_start_maps = {
+        key: dict(zip(frame["team_canonical"], frame["elo"]))
+        for key, frame in season_start.groupby(["league_name", "season_year"])
+    }
+    strength_maps = {
+        "market_value": market_maps,
+        "season_start_elo": season_start_maps,
+    }
+    agreement_rows = []
+    for key in sorted(set(market_maps) & set(season_start_maps)):
+        common_teams = sorted(set(market_maps[key]) & set(season_start_maps[key]))
+        market_strength = np.asarray(
+            [-market_maps[key][team] for team in common_teams], dtype=float
+        )
+        elo_strength = np.asarray(
+            [season_start_maps[key][team] for team in common_teams], dtype=float
+        )
+        correlation = np.nan
+        if (
+            len(common_teams) >= 4
+            and np.unique(market_strength).size > 1
+            and np.unique(elo_strength).size > 1
+        ):
+            correlation = float(spearmanr(market_strength, elo_strength).statistic)
+        agreement_rows.append(
+            {
+                "league_name": key[0],
+                "season_year": key[1],
+                "teams": len(common_teams),
+                "spearman_strength_correlation": correlation,
+            }
+        )
+    agreement_table = pd.DataFrame(agreement_rows)
+    _save_table(agreement_table, tables / "mvp4_strength_agreement.csv")
     rows = []
     coverage_rows = []
     valid_draws = 0
     permutations = int(config["permutations"])
-    for key, frame in selected.groupby(["league_name", "season_year"], sort=True):
-        total_matches = len(frame)
-        frame = frame.dropna(subset=["round"]).copy()
-        actual = _season_ssb(frame, frame["round"], rank_maps[key])
-        coverage_rows.append(
-            {
-                "league_name": key[0],
-                "season_year": key[1],
-                "matches": total_matches,
-                "matches_with_round": len(frame),
-                "rounds": frame["round"].nunique(),
-                "teams_with_valid_ssb": len(actual),
-                "status": (
-                    "included" if len(actual) >= 4 else "excluded_insufficient_strength_join"
-                ),
-            }
-        )
-        if len(actual) < 4:
-            continue
-        observed = float(np.mean(np.abs(actual)))
-        for null_type in ("global_round", "phase_preserving"):
-            null = _permutation_null(
-                frame,
-                rank_maps[key],
-                permutations,
-                rng,
-                null_type,
-                int(config.get("batch_size", 500)),
-            )
-            if len(null) != permutations:
-                continue
-            valid_draws += len(null)
-            empirical_p = float((1 + np.sum(null >= observed)) / (1 + len(null)))
-            rows.append(
+    grouped_seasons = list(
+        selected.groupby(["league_name", "season_year"], sort=True)
+    )
+    for source_number, (strength_source, maps) in enumerate(strength_maps.items()):
+        rng = np.random.default_rng(np.random.SeedSequence([seed, source_number]))
+        for key, source_frame in grouped_seasons:
+            total_matches = len(source_frame)
+            frame = source_frame.dropna(subset=["round"]).copy()
+            strengths = maps.get(key, {})
+            actual = _season_ssb(frame, frame["round"], strengths)
+            coverage_rows.append(
                 {
                     "league_name": key[0],
                     "season_year": key[1],
-                    "null_type": null_type,
-                    "teams": len(actual),
-                    "observed_mean_abs_ssb": observed,
-                    "null_mean_abs_ssb": float(np.mean(null)),
-                    "null_sd": float(np.std(null, ddof=1)),
-                    "null_q025": float(np.quantile(null, 0.025)),
-                    "null_q975": float(np.quantile(null, 0.975)),
-                    "empirical_p_upper": empirical_p,
-                    "monte_carlo_se": float(
-                        np.sqrt(empirical_p * (1 - empirical_p) / len(null))
+                    "strength_source": strength_source,
+                    "matches": total_matches,
+                    "matches_with_round": len(frame),
+                    "rounds": frame["round"].nunique(),
+                    "teams_with_valid_ssb": len(actual),
+                    "status": (
+                        "included"
+                        if len(actual) >= 4
+                        else "excluded_insufficient_strength_join"
                     ),
-                    "permutations": len(null),
                 }
             )
+            if len(actual) < 4:
+                continue
+            observed = float(np.mean(np.abs(actual)))
+            for null_type in ("global_round", "phase_preserving"):
+                null = _permutation_null(
+                    frame,
+                    strengths,
+                    permutations,
+                    rng,
+                    null_type,
+                    int(config.get("batch_size", 500)),
+                )
+                if len(null) != permutations:
+                    continue
+                valid_draws += len(null)
+                empirical_p = float((1 + np.sum(null >= observed)) / (1 + len(null)))
+                rows.append(
+                    {
+                        "league_name": key[0],
+                        "season_year": key[1],
+                        "strength_source": strength_source,
+                        "null_type": null_type,
+                        "teams": len(actual),
+                        "observed_mean_abs_ssb": observed,
+                        "null_mean_abs_ssb": float(np.mean(null)),
+                        "null_sd": float(np.std(null, ddof=1)),
+                        "null_q025": float(np.quantile(null, 0.025)),
+                        "null_q975": float(np.quantile(null, 0.975)),
+                        "empirical_p_upper": empirical_p,
+                        "monte_carlo_se": float(
+                            np.sqrt(empirical_p * (1 - empirical_p) / len(null))
+                        ),
+                        "permutations": len(null),
+                    }
+                )
     result_table = pd.DataFrame(rows)
     result_table["fdr_q_upper"] = np.nan
-    for indexes in result_table.groupby("null_type").groups.values():
+    for indexes in result_table.groupby(["strength_source", "null_type"]).groups.values():
         result_table.loc[indexes, "fdr_q_upper"] = multipletests(
             result_table.loc[indexes, "empirical_p_upper"], method="fdr_bh"
         )[1]
     _save_table(result_table, tables / "mvp4_counterfactual_schedules.csv")
     _save_table(pd.DataFrame(coverage_rows), tables / "mvp4_coverage.csv")
     fig, ax = plt.subplots(figsize=(8, 6))
-    for null_type, frame in result_table.groupby("null_type"):
+    for (strength_source, null_type), frame in result_table.groupby(
+        ["strength_source", "null_type"]
+    ):
         ax.scatter(
             frame["null_mean_abs_ssb"],
             frame["observed_mean_abs_ssb"],
             s=16,
             alpha=0.55,
-            label=null_type.replace("_", " "),
+            label=f"{strength_source.replace('_', ' ')} / {null_type.replace('_', ' ')}",
         )
     limits = [
         min(result_table["null_mean_abs_ssb"].min(), result_table["observed_mean_abs_ssb"].min()),
@@ -834,13 +1148,36 @@ def run_mvp4(matches: pd.DataFrame, standings: pd.DataFrame, tables: Path, figur
     )
     ax.legend()
     _save_figure(fig, figures / "mvp4_counterfactual.png")
-    league_seasons = result_table[["league_name", "season_year"]].drop_duplicates().shape[0]
-    viable = league_seasons >= 250 and (result_table["permutations"] == permutations).all()
+    source_coverage = (
+        result_table.groupby("strength_source")
+        .apply(
+            lambda values: values[["league_name", "season_year"]]
+            .drop_duplicates()
+            .shape[0],
+            include_groups=False,
+        )
+        .rename("league_seasons")
+    )
+    league_seasons = int(source_coverage.max())
+    viable = bool(
+        source_coverage.min() >= 250
+        and (result_table["permutations"] == permutations).all()
+    )
     stable = result_table["monte_carlo_se"].max() <= 0.0051
+    significant = result_table[result_table["fdr_q_upper"] < 0.05]
+    source_consistent = (
+        significant.groupby(["league_name", "season_year", "null_type"])[
+            "strength_source"
+        ].nunique()
+        == len(strength_maps)
+    )
+    finite_agreement = agreement_table["spearman_strength_correlation"].dropna()
     return {
         "mvp": 4,
         "status": _decision(viable, stable),
         "league_seasons": league_seasons,
+        "minimum_strength_source_league_seasons": int(source_coverage.min()),
+        "strength_sources": int(result_table["strength_source"].nunique()),
         "null_models": int(result_table["null_type"].nunique()),
         "valid_permutation_draws": int(valid_draws),
         "league_season_nulls_upper_tail_p_lt_0_05": int(
@@ -849,9 +1186,14 @@ def run_mvp4(matches: pd.DataFrame, standings: pd.DataFrame, tables: Path, figur
         "league_season_nulls_fdr_q_lt_0_05": int(
             (result_table["fdr_q_upper"] < 0.05).sum()
         ),
+        "source_consistent_fdr_findings": int(source_consistent.sum()),
+        "median_strength_source_correlation": float(finite_agreement.median()),
+        "strength_source_correlations_below_0_30": int((finite_agreement < 0.30).sum()),
         "interpretation": (
-            "Both nulls preserve fixtures and home/away assignments; the stricter null also "
-            "preserves broad season phase."
+            "Two pre-schedule strength proxies were tested under nulls that preserve "
+            "fixtures and home/away assignments; the stricter null also preserves broad "
+            "season phase. Cross-proxy agreement and source-consistent FDR findings are "
+            "reported separately."
         ),
     }
 

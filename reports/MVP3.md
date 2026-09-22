@@ -1,11 +1,11 @@
 # MVP 3 — Economic inequality moderation
 
 - **Data:** 5,942 team-seasons across 20 leagues; market-Gini SD 0.1102.
-- **Model:** points per game on continuous SSB, centered team market value,
-  league-season market Gini and all interactions, with league/year effects and
-  league-season clustered SE.
-- **Result:** three-way interaction -0.6401, 95% CI [-1.1954, -0.0849], p=0.0238.
-  The SSB × relative-value interaction is 0.3149, p=0.0043.
+- **Primary model:** points per game on dynamic pre-match-Elo SSB, centered team
+  market value, league-season market Gini and all interactions, with league/year
+  effects and league-season clustered SE.
+- **Primary result:** three-way interaction -0.6401, 95% CI [-1.1954, -0.0849],
+  p=0.0238. The SSB × relative-value interaction is 0.3149, p=0.0043.
 - **Marginal effects:** at low league inequality, the estimated SSB association is
   -0.123 PPG (95% CI [-0.222, -0.025]) for low-value clubs and +0.179
   (95% CI [0.059, 0.300]) for high-value clubs. At high inequality, both estimates
@@ -13,26 +13,33 @@
 - **League sensitivity:** all 20 leave-one-league-out estimates retain the negative
   three-way sign; estimates range from -0.797 to -0.470. No single league creates
   the result, although three exclusions make the 95% interval include zero.
-- **Alternative specifications:** all three outcome specifications using verified
-  pre-match Elo schedule strength retain the negative sign. Same-season market
-  value and final rank are retained as timing diagnostics, not classified as
-  temporally verified. The
-  random-intercept league model converges and also retains the sign, but its league
-  variance is effectively zero (7.8e-12), so it is only a sign check. A quadratic
-  nonlinearity test is borderline (p=0.051; AIC 1768.7 versus 1775.1 linear), while
-  the cubic spline does not improve AIC (1777.0). The linear interaction remains a
-  useful summary, but not the only plausible functional form.
-- **Support:** all nine resource-by-inequality tertile cells contain at least 429
-  team-seasons and SSB SDs between 0.211 and 0.234.
-- **Temporal audit:** the article calls the financial data pre-season, but the 451
-  released Bronze CSVs were bulk-collected on 2026-03-18 and contain no valuation
-  timestamp. The URL's `saison_id` verifies the season only. A preceding-season
-  sensitivity retains 5,078 observations (85.4% coverage) and the negative
-  interaction in 20/20 league exclusions: -0.4721, 95% CI [-1.0708, 0.1266],
-  p=0.1222. At low prior inequality, the marginal association is -0.105 PPG for
-  low-value clubs (CI [-0.235, 0.025]) and +0.164 for high-value clubs
-  (CI [0.034, 0.294]); at high inequality both remain near zero.
-- **Decision:** **advance as observational heterogeneity**. The qualitative pattern
-  survives a genuinely ordered sensitivity, but the three-way term loses precision.
-  Do not describe the same-season model as pre-season or causal without a dated
-  historical snapshot.
+- **Schedule-strength timing:** replacing dynamic Elo with one fixed Elo rating
+  observed at the start of each team-season gives -0.7631, 95% CI
+  [-1.4285, -0.0976], p=0.0246. With conservative clustering by 20 leagues and a
+  t reference, the fixed-start result remains negative with CI
+  [-1.4633, -0.0628], p=0.0343. Across PPG, goal difference and win rate, all six
+  temporally safe dynamic/fixed-Elo specifications retain the negative sign.
+- **Inference stress test:** clustering the primary model by 20 leagues rather
+  than 306 league-seasons leaves the point estimate unchanged but widens the CI
+  to [-1.3304, 0.0501], p=0.0672. The headline result is therefore not decisive
+  under the most conservative clustering choice.
+- **Temporal validation:** the 2018–2024 holdout estimate is -0.7340, 95% CI
+  [-1.7828, 0.3149], p=0.1702. Same-season estimates are negative in all three
+  eras, but each era-specific interval crosses zero. The preceding-season model
+  reverses sign in 2004–2010 (+0.9820) and is negative in 2011–2017 and 2018–2024,
+  so temporal homogeneity is not established.
+- **Lagged-value decomposition:** the preceding-season sensitivity retains 5,078
+  observations (85.4%). Restricting the original current-value model to those
+  observations changes the estimate from -0.6401 to -0.5597 and already makes
+  the CI cross zero; replacing the exposure with preceding-season value then
+  changes it to -0.4721, 95% CI [-1.0708, 0.1266], p=0.1222. Missing lagged values
+  are selective: retained clubs have much higher current log market value than
+  excluded clubs (standardized mean difference 0.927).
+- **Functional form and support:** all nine resource-by-inequality tertile cells
+  contain at least 429 team-seasons and SSB SDs between 0.211 and 0.234. A
+  quadratic term is borderline (p=0.051), while a cubic spline does not improve
+  AIC. The linear interaction is a compact summary, not proof of global linearity.
+- **Decision:** **advance as observational, hypothesis-generating heterogeneity**.
+  The sign survives unusually broad measurement and leave-one-league-out checks,
+  but conservative clustering, holdout precision, early-era reversal in the
+  lagged model and selective lagged coverage prevent a definitive or causal claim.

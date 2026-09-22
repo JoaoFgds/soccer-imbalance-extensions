@@ -2,12 +2,13 @@
 
 ## Research position
 
-The evidence supports a paper centered on **heterogeneous observational
-associations**, not a universal or causal effect of schedule order. MVP 1 supplies
-the leakage-free measurement and average-effect baseline; MVP 3 provides the main
-substantive result; MVP 4 supplies a counterfactual benchmark showing that the
-observed schedules are not unusually imbalanced relative to constrained round
-reorderings.
+The evidence supports continued analysis of **heterogeneous observational
+associations**, not yet a definitive article claim and not a universal or causal
+effect of schedule order. MVP 1 supplies the leakage-free measurement and
+average-effect baseline; MVP 3 provides a stable directional pattern whose
+precision depends on inference and period; MVP 4 supplies a counterfactual
+benchmark showing that observed schedules are not systematically more imbalanced
+than constrained round reorderings.
 
 ## Baseline: the average association is a precise null
 
@@ -24,8 +25,9 @@ for a universal mean effect.
 
 The same-season MVP 3 model estimates an SSB × relative squad value × league
 market-value Gini interaction of -0.6401 (95% CI [-1.1954, -0.0849], p=0.0238).
-The negative sign appears in all 20 leave-one-league-out refits and in all three
-outcomes when schedule strength is measured with verified pre-match Elo.
+The negative sign appears in all 20 leave-one-league-out refits and in all six
+outcome/measurement combinations using dynamic pre-match Elo or Elo fixed at the
+start of the team-season.
 
 The interpretable result is not that poorer clubs suffer more in highly unequal
 leagues. The differentiation is strongest in relatively balanced leagues:
@@ -39,6 +41,26 @@ All nine resource-by-inequality support cells contain at least 429 observations,
 no single league creates the sign. A quadratic specification is borderline
 (p=0.051), while a cubic spline does not improve AIC, so the linear interaction is a
 compact summary rather than proof of a globally linear mechanism.
+
+## Measurement and inference stress tests
+
+Fixing every opponent's strength at its first pre-match Elo of the season removes
+within-season rating updates from the schedule metric. The three-way estimate is
+-0.7631 (95% CI [-1.4285, -0.0976], p=0.0246), and remains negative when standard
+errors are clustered by only 20 leagues (95% CI [-1.4633, -0.0628], p=0.0343).
+This strengthens the conclusion that the direction is not an artifact of Elo
+updating after earlier results.
+
+The same conservative league-level clustering is less favorable to the primary
+dynamic-Elo model: its point estimate remains -0.6401, but the interval widens to
+[-1.3304, 0.0501] (p=0.0672). Thus the signal is measurement-robust but its
+statistical decisiveness is not invariant to the clustering unit.
+
+The reserved 2018–2024 holdout also retains a negative estimate (-0.7340), while
+its 95% interval is wide [-1.7828, 0.3149]. Same-season estimates are negative in
+the early, middle and late eras, but no era alone is precise. The evidence is
+compatible with a recurring directional pattern, not with a time-invariant effect
+of known magnitude.
 
 ## Temporal audit and ordered sensitivity
 
@@ -54,40 +76,61 @@ retains 5,078 team-seasons (85.4%) across 288 league-seasons. The three-way esti
 remains negative at -0.4721 and stays negative in all 20 league exclusions, but its
 95% interval crosses zero [-1.0708, 0.1266] (p=0.1222).
 
+This loss of precision is partly a sample-composition effect. Restricting the
+same-season model to the 5,078 observations with a lagged value changes the estimate
+to -0.5597 with CI [-1.1903, 0.0709] before the value definition is changed. The
+retained clubs have markedly higher same-season log market value than excluded
+clubs (standardized mean difference 0.927). The lagged sample is therefore not a
+neutral subset, especially for promoted or less-covered clubs.
+
 The conditional pattern remains recognizable. At low prior inequality, the
 high-value estimate is +0.164 PPG (95% CI [0.034, 0.294]) and the low-value estimate
 is -0.105 (95% CI [-0.235, 0.025]); at high inequality both are near zero. This
 supports qualitative robustness while showing that the headline three-way estimate
 is less precise under a strictly ordered exposure.
 
+Temporal homogeneity is also limited: the preceding-season estimate is positive in
+2004–2010 (+0.9820) and negative in 2011–2017 (-0.8602) and 2018–2024 (-0.7368),
+with all three intervals crossing zero. The full-period lagged sign should not be
+presented as uniformly reproduced in every era.
+
 ## Counterfactual benchmark
 
-MVP 4 evaluates 289 league-seasons under two fixture-preserving nulls with 10,000
-draws per league-season/null (5.78 million valid draws). There are 22 nominal
-upper-tail findings and none after within-null false-discovery-rate correction.
-Mean observed absolute SSB is 0.1806, compared with approximately 0.1948 under both
-nulls. The observed schedules therefore do not show systematic excess imbalance
-relative to the modeled round-order constraints.
+MVP 4 evaluates two pre-schedule strength definitions under two fixture-preserving
+nulls with 10,000 draws per league-season/source/null (11.50 million valid draws).
+Market value covers 289 league-seasons and yields 22 nominal findings but none
+after within-source/null FDR correction. Fixed season-start Elo covers 286, yields
+42 nominal findings and four FDR rows corresponding to LaLiga2 2016 and 2024 under
+both nulls.
+
+None of those league-season/null findings survives FDR under both strength proxies.
+The median within-season rank agreement between the proxies is 0.578, and 43 of 286
+correlations are below 0.30. Mean observed absolute SSB is 0.1806 for market value
+and 0.1848 for fixed Elo, versus null means near 0.1948. The robust aggregate result
+is absence of systematic excess imbalance; individual anomalies are sensitive to
+the definition of strength.
 
 ## Claims supported by the evidence
 
-The defensible main claim is:
+The defensible working conclusion is:
 
 > Schedule order has a near-zero average association with season performance, but
 > its association varies with clubs' relative economic position and league
-> inequality. This heterogeneity is qualitatively stable under preceding-season
-> financial measures, while constrained schedule permutations show no systematic
-> excess imbalance in observed calendars.
+> inequality. The heterogeneity sign is stable across schedule-strength measures,
+> league exclusions and a late temporal holdout, but its precision weakens under
+> conservative clustering and temporally ordered financial measures. Constrained
+> permutations show no source-consistent excess imbalance in observed calendars.
 
 The analysis does **not** support claims that schedule order causes performance,
 that the released values are independently verified pre-season snapshots, or that
-poorer clubs are especially harmed in the most unequal leagues.
+poorer clubs are especially harmed in the most unequal leagues. It also does not
+support a homogeneous effect across eras or a replicated list of anomalous seasons.
 
-## Recommended paper structure
+## Next analysis gate before article writing
 
-1. Leakage-free continuous SSB and the precise average null (MVP 1).
-2. Economic heterogeneity, overlap and robustness (MVP 3).
-3. Temporal provenance audit and preceding-season sensitivity.
-4. Constraint-preserving schedule benchmark (MVP 4).
-5. Null short-run and attendance mechanisms as bounded appendix results (MVPs 2
-   and 5).
+The next highest-value step is mechanism falsification, not prose. Predeclare a
+small set of observable implications that distinguish fatigue/adaptation from
+resource-buffering explanations, and test them on the existing match panel without
+selecting specifications from the observed p-values. Article drafting should wait
+until that gate either identifies a coherent mechanism or demonstrates that the
+heterogeneity is predictive but not mechanistically resolved.
