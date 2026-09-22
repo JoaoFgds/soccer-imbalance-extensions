@@ -1,0 +1,16 @@
+{
+  "attendance_missing_rate": 0.003122379431548522,
+  "blank_or_unparsed_dates": 2,
+  "conflicting_duplicate_groups": 0,
+  "leagues": 20,
+  "match_links_over_two_views": 0,
+  "raw_schedule_rows": 224120,
+  "season_max": 2024,
+  "season_min": 2004,
+  "singleton_match_links": 68,
+  "source_files": 5958,
+  "standings_rows": 5944,
+  "unique_matches": 112094,
+  "unparsed_results": 1,
+  "valid_league_seasons": 306
+}

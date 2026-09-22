@@ -1,0 +1,21 @@
+seed: 20260922
+elo:
+  initial: 1500.0
+  k_factor: 20.0
+  home_advantage: 65.0
+  between_season_regression: 0.25
+mvp2:
+  rolling_window: 3
+mvp4:
+  permutations: 250
+  latest_seasons_per_league: 1
+mvp5:
+  excluded_seasons: [2020, 2021]
+criteria:
+  minimum_team_seasons: 500
+  minimum_match_rows: 5000
+  minimum_join_rate: 0.90
+  minimum_attendance_rate: 0.80
+  sesoi_ppg_per_ssb_unit: 0.10
+  sesoi_points_per_100_elo_shock: 0.05
+  sesoi_log_attendance_per_100_elo_shock: 0.02

@@ -1,0 +1,30 @@
+[project]
+name = "soccer-imbalance-extensions"
+version = "0.1.0"
+description = "Reproducible screening MVPs for schedule-imbalance research in football"
+requires-python = ">=3.12"
+dependencies = [
+  "matplotlib>=3.9,<4",
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "pyyaml>=6.0,<7",
+  "requests>=2.32,<3",
+  "scipy>=1.14,<2",
+  "statsmodels>=0.14,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3,<9", "ruff>=0.11,<1"]
+
+[project.scripts]
+sie = "soccer_imbalance_extensions.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

@@ -1,0 +1,18 @@
+{
+  "release": "https://github.com/JoaoFgds/soccer-scraper/releases/tag/reproducibility-v1",
+  "tag": "reproducibility-v1",
+  "access_date": "2026-09-22",
+  "assets": [
+    {
+      "name": "analysis-inputs-v1.zip",
+      "sha256": "f3b5764d9b23d4965fb916603cee451841ab188d1e5b2c68b3be94d33f7ede3f",
+      "bytes": 1060470
+    },
+    {
+      "name": "soccer-scraper-bronze-v1.zip",
+      "sha256": "0487822806944ac816af5f9a3dbff27be547a1d0690972e9e7402d31cf82ae5a",
+      "bytes": 13362423
+    }
+  ],
+  "redistribution": "Assets are downloaded to ignored local cache and are not committed."
+}

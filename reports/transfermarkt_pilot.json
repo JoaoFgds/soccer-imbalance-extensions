@@ -1,0 +1,28 @@
+{
+  "access_date": "2026-09-22",
+  "pilot": [
+    {
+      "accessed_at": "2026-09-22T17:42:54.491847+00:00",
+      "bytes": 333999,
+      "cached": false,
+      "contains_market_fields": true,
+      "contains_schedule_fields": true,
+      "name": "chelsea_schedule_2024",
+      "redistribution": "HTML cache is local-only and ignored by Git; only metadata is published.",
+      "sha256": "d10ea7f993e2d7a72dfcd9bdcdbe8dc09f0adfe72b5c361abb8e0e043bd03293",
+      "url": "https://www.transfermarkt.com.br/fc-chelsea/spielplan/verein/631/saison_id/2024"
+    },
+    {
+      "accessed_at": "2026-09-22T17:42:59.284266+00:00",
+      "bytes": 209965,
+      "cached": false,
+      "contains_market_fields": true,
+      "contains_schedule_fields": true,
+      "name": "premier_league_market_2024",
+      "redistribution": "HTML cache is local-only and ignored by Git; only metadata is published.",
+      "sha256": "5957775137969e1110eb44ea6bd4c2819546f473d8293b80127e6a7bbe5ab4cb",
+      "url": "https://www.transfermarkt.com.br/premier-league/startseite/wettbewerb/GB1/plus/?saison_id=2024"
+    }
+  ],
+  "request_count": 2
+}
