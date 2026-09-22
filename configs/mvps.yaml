@@ -7,8 +7,8 @@ elo:
 mvp2:
   rolling_window: 3
 mvp4:
-  permutations: 250
-  latest_seasons_per_league: 1
+  permutations: 10000
+  batch_size: 500
 mvp5:
   excluded_seasons: [2020, 2021]
 criteria:

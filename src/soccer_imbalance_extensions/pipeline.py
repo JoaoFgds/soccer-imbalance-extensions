@@ -57,7 +57,7 @@ def run_pipeline(source_root: Path, project_root: Path, only: int | None = None)
     if only in (None, 3):
         if team_seasons is None:
             team_seasons, _ = run_mvp1(standings, team_matches, tables, figures, config["criteria"])
-        results.append(run_mvp3(team_seasons, tables, figures, config["criteria"]))
+        results.append(run_mvp3(team_seasons, team_matches, tables, figures, config["criteria"]))
     if only in (None, 4):
         results.append(run_mvp4(matches, standings, tables, figures, config["mvp4"], int(config["seed"])))
     if only in (None, 5):

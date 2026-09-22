@@ -2,7 +2,13 @@ import pandas as pd
 import pytest
 
 from soccer_imbalance_extensions.data import canonicalize
-from soccer_imbalance_extensions.features import add_elo, continuous_ssb, gini, to_team_match
+from soccer_imbalance_extensions.features import (
+    add_elo,
+    continuous_ssb,
+    gini,
+    schedule_balance_from_strength,
+    to_team_match,
+)
 
 
 def fixture_matches():
@@ -65,3 +71,10 @@ def test_continuous_ssb_handles_insufficient_opponents_explicitly():
     long = to_team_match(add_elo(fixture_matches(), 1500, 20, 0, 0))
     result = continuous_ssb(long)
     assert result["ssb_continuous"].isna().all()
+
+
+def test_generic_schedule_balance_rejects_misaligned_strength():
+    long = to_team_match(add_elo(fixture_matches(), 1500, 20, 0, 0))
+    strength = pd.Series([1.0] * len(long), index=range(10, 10 + len(long)))
+    with pytest.raises(ValueError, match="index"):
+        schedule_balance_from_strength(long, strength, "alternative_ssb")

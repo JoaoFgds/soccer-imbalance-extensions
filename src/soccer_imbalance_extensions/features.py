@@ -76,18 +76,39 @@ def to_team_match(matches: pd.DataFrame) -> pd.DataFrame:
     return long.reset_index(drop=True)
 
 
-def continuous_ssb(team_matches: pd.DataFrame) -> pd.DataFrame:
+def schedule_balance_from_strength(
+    team_matches: pd.DataFrame,
+    opponent_strength: pd.Series,
+    output_column: str,
+) -> pd.DataFrame:
+    """Correlate first-opponent order with negative strength for each team-season."""
+    if not team_matches.index.equals(opponent_strength.index):
+        raise ValueError("Opponent-strength index must match the team-match index")
+    working = team_matches.assign(_opponent_strength=opponent_strength)
     rows = []
     key = ["league_name", "season_year", "team_canonical"]
-    for values, frame in team_matches.groupby(key, sort=True):
+    for values, frame in working.groupby(key, sort=True):
         first = frame.sort_values(["kickoff", "match_id"]).drop_duplicates("opponent_canonical", keep="first")
-        if len(first) < 4 or first["opponent_elo_pre"].nunique() < 2:
+        strength = first["_opponent_strength"]
+        if len(first) < 4 or strength.notna().sum() != len(first) or strength.nunique() < 2:
             ssb = np.nan
         else:
             order = np.arange(1, len(first) + 1)
-            ssb = float(spearmanr(order, -first["opponent_elo_pre"]).statistic)
-        rows.append((*values, ssb, len(first), float(first["opponent_elo_pre"].std(ddof=0))))
-    return pd.DataFrame(rows, columns=key + ["ssb_continuous", "unique_opponents", "opponent_strength_sd"])
+            ssb = float(spearmanr(order, -strength).statistic)
+        rows.append((*values, ssb, len(first), float(strength.std(ddof=0))))
+    return pd.DataFrame(
+        rows,
+        columns=key + [output_column, "unique_opponents", f"{output_column}_strength_sd"],
+    )
+
+
+def continuous_ssb(team_matches: pd.DataFrame) -> pd.DataFrame:
+    result = schedule_balance_from_strength(
+        team_matches,
+        team_matches["opponent_elo_pre"],
+        "ssb_continuous",
+    )
+    return result.rename(columns={"ssb_continuous_strength_sd": "opponent_strength_sd"})
 
 
 def gini(values: pd.Series) -> float:

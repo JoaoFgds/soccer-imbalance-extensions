@@ -16,11 +16,17 @@ pre-match rating.
   mean opponent Elo over the preceding three matches relative to the
   league-season mean; windows two and five are sensitivities.
 - MVP 3: cluster-robust OLS with continuous SSB, relative market value, league
-  market-value Gini, and their three-way interaction.
-- MVP 4: 250 seeded global round-order permutations for the latest usable season
-  in each league. This preserves fixtures, home/away assignments, and the fact
-  that an existing round is moved as a unit. It does not encode commercial or
-  policing constraints absent from the source.
+  market-value Gini, and their three-way interaction. Robustness checks include
+  marginal effects at joint 10th/50th/90th percentiles, leave-one-league-out
+  refits, quadratic and cubic-spline functional forms, a league random-intercept
+  model, alternative outcomes, two temporally safe strength definitions, and a
+  separately labelled post-season final-rank diagnostic.
+- MVP 4: 10,000 seeded permutations under both global-round and phase-preserving
+  nulls for every usable league-season. Both preserve fixtures, home/away
+  assignments, and complete rounds; the second also retains each round within
+  its season half. Empirical upper-tail probabilities receive Benjamini-Hochberg
+  correction separately by null. These nulls do not encode commercial or policing
+  constraints absent from the source.
 - MVP 5: within-home-team-season OLS for log observed attendance, excluding
   2020–2021 and controlling for own/opponent Elo, opponent market value, rest,
   weekend, and season progress.
@@ -31,5 +37,6 @@ All estimates are associations. The MVPs do not justify causal claims.
 
 The user explicitly designated the article as the source of truth. Accordingly,
 the market-value snapshot is interpreted as the article's pre-season strength
-proxy. The repository nevertheless records the source and access limitations so
-that a full analysis can perform a stricter timestamp audit.
+proxy for exploratory analysis. The released row-level input has no valuation
+snapshot timestamp, so independent temporal verification remains a prerequisite
+for stronger temporal or causal language.

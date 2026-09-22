@@ -15,7 +15,8 @@ evidence, not definitive results for an extended paper.
 1. Continuous schedule imbalance using strictly pre-match Elo ratings.
 2. Local two-, three-, and five-match opponent-strength shocks.
 3. Moderation by relative squad value and league market-value inequality.
-4. Constraint-preserving Monte Carlo permutations of complete rounds.
+4. Constraint-preserving Monte Carlo permutations of complete rounds under
+   global-round and phase-preserving nulls.
 5. Within-team-season models of schedule shocks and stadium attendance.
 
 The pipeline validates source keys, deduplicates the two team views of a fixture,
@@ -77,8 +78,8 @@ The reference execution covered 5,944 team-seasons, 306 league-seasons and
 |---:|---|---|
 | 1 | Continuous SSB coefficient `0.0061`, 95% CI `[-0.0279, 0.0402]`; 99.97% team-season coverage | Reformulate toward heterogeneity; the average association is a precise null |
 | 2 | Three-match shock coefficient `0.0119` points per 100 Elo, 95% CI `[-0.0055, 0.0294]`; windows 2 and 5 also null | Discard the tested short-run linear mechanism |
-| 3 | Three-way SSB/resource/inequality interaction `-0.6401`, 95% CI `[-1.1954, -0.0849]`, `p=0.0238` | Advance |
-| 4 | 19 league-seasons and 4,750 valid permutations; zero leagues in the upper 5% tail | Advance as a strong null/benchmark contribution |
+| 3 | Three-way SSB/resource/inequality interaction `-0.6401`, 95% CI `[-1.1954, -0.0849]`; the sign persists in 20/20 league exclusions and all temporally safe alternatives | Advance, conditional on market-timestamp audit |
+| 4 | 289 league-seasons, two nulls and 5.78 million valid draws; 22 nominal findings and zero after within-null FDR control | Advance as a strong null/benchmark contribution |
 | 5 | Attendance effect `-0.0043` log points per 100 Elo, 95% CI `[-0.0108, 0.0022]`; 99.72% attendance availability | Discard the tested linear attendance mechanism |
 
 The recommended full analysis is **MVP 3**, with MVP 1 retained as its
@@ -101,8 +102,9 @@ advances because its methodological null benchmark is the contribution.
 ## Important limitations
 
 - The Elo initialization and K-factor are MVP choices, not optimized estimates.
-- Global round permutations do not reproduce unobserved commercial, policing or
-  stadium-sharing constraints.
+- Round permutations do not reproduce unobserved commercial, policing or
+  stadium-sharing constraints; 17 league-seasons fail market-rank integration
+  and are reported explicitly.
 - The article's stated pre-season interpretation of market value is accepted for
   this stage; a full paper should audit snapshot timestamps.
 - Match points and attendance models remain observational.

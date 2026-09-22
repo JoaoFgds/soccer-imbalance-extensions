@@ -35,11 +35,11 @@ All estimates are exploratory associations, not causal effects.
 
 ### MVP 3: avançar
 
-- Evidence: `{"ci_high": -0.08491024971944383, "ci_low": -1.1953833469912285, "gini_sd": 0.11016435453636962, "interpretation": "Exploratory moderation; market values follow the article's stated pre-season interpretation.", "mvp": 3, "n": 5942, "p_value": 0.023840252072785773, "status": "avançar", "triple_interaction": -0.6401467983553362}`
+- Evidence: `{"ci_high": -0.08491024971944383, "ci_low": -1.1953833469912285, "gini_sd": 0.11016435453636962, "hierarchical_sign_compatible": true, "interpretation": "Exploratory moderation with robustness checks; row-level market-value timing remains unverified.", "leave_one_league_out_sign_share": 1.0, "market_timestamp_verified": false, "minimum_support_cell_n": 429, "mvp": 3, "n": 5942, "nonlinearity_p_value": 0.05112136112382411, "p_value": 0.023840252072785773, "status": "avançar", "temporally_safe_alternative_sign_share": 1.0, "triple_interaction": -0.6401467983553362}`
 
 ### MVP 4: avançar
 
-- Evidence: `{"interpretation": "Null preserves fixtures, home/away assignments and one global ordering of existing rounds.", "league_seasons": 19, "leagues_upper_tail_p_lt_0_05": 0, "mvp": 4, "status": "avançar", "valid_permutation_draws": 4750}`
+- Evidence: `{"interpretation": "Both nulls preserve fixtures and home/away assignments; the stricter null also preserves broad season phase.", "league_season_nulls_fdr_q_lt_0_05": 0, "league_season_nulls_upper_tail_p_lt_0_05": 22, "league_seasons": 289, "mvp": 4, "null_models": 2, "status": "avançar", "valid_permutation_draws": 5780000}`
 
 ### MVP 5: descartar
 

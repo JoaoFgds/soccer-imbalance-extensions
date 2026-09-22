@@ -1,0 +1,4 @@
+check,status,evidence
+article_interpretation,claimed_pre_season,The source article describes market value as a pre-season proxy.
+row_level_snapshot_timestamp,not_available,The released standings input has no valuation snapshot timestamp.
+independent_temporal_verification,pending,A dated raw snapshot or archived source is required.

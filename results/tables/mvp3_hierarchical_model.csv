@@ -1,0 +1,2 @@
+term,estimate,std_error,ci_low,ci_high,p_value,nobs,r_squared,converged,random_effect,league_intercept_variance,standardized_predictors
+ssb_continuous_z:relative_log_market_z:market_gini_z,-0.009866567716128736,0.003948234303923007,-0.017604964754343397,-0.0021281706779140734,0.012455052510418334,5942,,True,league_intercept,7.792681806006911e-12,"ssb_continuous_z,relative_log_market_z,market_gini_z"
