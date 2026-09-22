@@ -39,7 +39,12 @@
   contain at least 429 team-seasons and SSB SDs between 0.211 and 0.234. A
   quadratic term is borderline (p=0.051), while a cubic spline does not improve
   AIC. The linear interaction is a compact summary, not proof of global linearity.
+- **Predeclared mechanism gate:** zero of four three-match implications is
+  supported after Holm correction. Fatigue and adaptation remain imprecise, while
+  both resource-buffering coefficients are near zero with 95% intervals inside
+  ±0.05 match points per 100-Elo shock. Same-season sensitivities are also null.
 - **Decision:** **advance as observational, hypothesis-generating heterogeneity**.
   The sign survives unusually broad measurement and leave-one-league-out checks,
   but conservative clustering, holdout precision, early-era reversal in the
-  lagged model and selective lagged coverage prevent a definitive or causal claim.
+  lagged model, selective lagged coverage and absence of a validated mechanism
+  prevent a definitive or causal claim.

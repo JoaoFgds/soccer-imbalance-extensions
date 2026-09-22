@@ -19,6 +19,9 @@ evidence, not definitive results for an extended paper.
    global-round and phase-preserving nulls.
 5. Within-team-season models of schedule shocks and stadium attendance.
 
+A timestamped post-MVP gate additionally tests short-rest fatigue, long-recovery
+adaptation and resource buffering against symmetric future-schedule controls.
+
 The pipeline validates source keys, deduplicates the two team views of a fixture,
 records exclusions, prevents future-information leakage, fits cluster-robust or
 within-panel models, and writes aggregate tables, figures, diagnostics, and an
@@ -79,7 +82,7 @@ The reference execution covered 5,944 team-seasons, 306 league-seasons and
 |---:|---|---|
 | 1 | Continuous SSB coefficient `0.0061`, 95% CI `[-0.0279, 0.0402]`; 99.97% team-season coverage | Reformulate toward heterogeneity; the average association is a precise null |
 | 2 | Three-match shock coefficient `0.0119` points per 100 Elo, 95% CI `[-0.0055, 0.0294]`; windows 2 and 5 also null | Discard the tested short-run linear mechanism |
-| 3 | Same-season interaction `-0.6401`, 95% CI `[-1.1954, -0.0849]`; fixed season-start Elo `-0.7631`, 95% CI `[-1.4285, -0.0976]`; holdout and preceding-season estimates retain the sign but are imprecise | Advance as observational heterogeneity with qualified inferential strength; no causal or verified pre-season claim |
+| 3 | Same-season interaction `-0.6401`, 95% CI `[-1.1954, -0.0849]`; fixed season-start Elo `-0.7631`, 95% CI `[-1.4285, -0.0976]`; holdout and preceding-season estimates retain the sign but are imprecise; 0/4 predeclared short-run mechanisms pass | Advance as unexplained observational heterogeneity with qualified inferential strength; no causal or verified pre-season claim |
 | 4 | 286–289 league-seasons, two strength proxies, two nulls and 11.50 million valid draws; four Elo-based FDR findings but zero findings consistent across strength proxies | Advance as a null/benchmark contribution, not as evidence of systematic excess imbalance |
 | 5 | Attendance effect `-0.0043` log points per 100 Elo, 95% CI `[-0.0108, 0.0022]`; 99.72% attendance availability | Discard the tested linear attendance mechanism |
 
@@ -100,6 +103,8 @@ advances because its methodological null benchmark is the contribution.
 - `reports/TEMPORAL_AUDIT.md`: market-value timing audit and decision boundary.
 - `reports/ROBUSTNESS_REVIEW.md`: second-pass stress tests and updated evidence
   classification.
+- `reports/MECHANISM_FALSIFICATION.md`: results of the predeclared post-MVP
+  mechanism gate.
 - `docs/`: original-study boundary, traceability, methodology, and licensing.
 - `docs/MECHANISM_FALSIFICATION_PLAN.md`: timestamped specification for the
   post-MVP mechanism gate.

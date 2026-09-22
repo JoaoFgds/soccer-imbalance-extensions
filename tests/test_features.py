@@ -5,6 +5,7 @@ from soccer_imbalance_extensions.data import canonicalize
 from soccer_imbalance_extensions.features import (
     add_elo,
     continuous_ssb,
+    fixed_elo_local_shocks,
     gini,
     schedule_balance_from_strength,
     season_start_elo_ssb,
@@ -87,3 +88,32 @@ def test_season_start_elo_is_fixed_before_all_team_matches():
     assert "ssb_preseason_elo" in result.columns
     assert result["ssb_preseason_elo"].isna().all()
     assert result["ssb_preseason_elo_strength_sd"].eq(0).all()
+
+
+def test_fixed_elo_local_shocks_exclude_current_opponent_symmetrically():
+    teams = list("abcdef")
+    strength = {team: 1000 + 100 * index for index, team in enumerate(teams)}
+    rows = []
+    for team in teams:
+        opponents = [opponent for opponent in teams if opponent != team]
+        for match_number, opponent in enumerate(opponents, 1):
+            rows.append(
+                {
+                    "league_name": "league",
+                    "season_year": 2024,
+                    "team_canonical": team,
+                    "opponent_canonical": opponent,
+                    "kickoff": pd.Timestamp("2024-01-01")
+                    + pd.Timedelta(match_number, unit="D"),
+                    "match_id": f"{team}-{match_number}",
+                    "own_elo_pre": strength[team],
+                }
+            )
+    result = fixed_elo_local_shocks(pd.DataFrame(rows), window=2, minimum_periods=2)
+    middle = result[(result["team_canonical"] == "a")].iloc[2]
+
+    assert middle["opponent_canonical"] == "d"
+    assert middle["fixed_elo_strength_lag2"] == 1150
+    assert middle["fixed_elo_strength_lead2"] == 1450
+    assert middle["fixed_elo_shock_lag2"] == -1
+    assert middle["fixed_elo_shock_lead2"] == 2

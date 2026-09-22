@@ -66,6 +66,7 @@ def run_pipeline(source_root: Path, project_root: Path, only: int | None = None)
                 figures,
                 config["criteria"],
                 market_values,
+                config["mechanism"],
             )
         )
     if only in (None, 4):

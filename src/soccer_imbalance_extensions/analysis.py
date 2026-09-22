@@ -11,11 +11,12 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from scipy.stats import rankdata, spearmanr
+from scipy.stats import norm, rankdata, spearmanr
 from statsmodels.stats.multitest import multipletests
 
 from .features import (
     continuous_ssb,
+    fixed_elo_local_shocks,
     gini,
     schedule_balance_from_strength,
     season_start_elo_ssb,
@@ -149,6 +150,365 @@ def _build_lagged_market_data(
     return data.dropna(subset=required).copy()
 
 
+def _equivalence_test(
+    estimate: float,
+    std_error: float,
+    margin: float,
+) -> dict[str, float | bool]:
+    """Two one-sided normal tests for equivalence inside a symmetric margin."""
+    critical = float(norm.ppf(0.95))
+    ci_low = estimate - critical * std_error
+    ci_high = estimate + critical * std_error
+    lower_p = float(norm.sf((estimate + margin) / std_error))
+    upper_p = float(norm.cdf((estimate - margin) / std_error))
+    return {
+        "ci90_low": ci_low,
+        "ci90_high": ci_high,
+        "equivalence_p_value": max(lower_p, upper_p),
+        "inside_margin": bool(ci_low > -margin and ci_high < margin),
+    }
+
+
+def _mechanism_resource_frame(
+    team_seasons: pd.DataFrame,
+    market_values: pd.DataFrame,
+    value_source: str,
+) -> pd.DataFrame:
+    if value_source == "preceding_season":
+        resource = _build_lagged_market_data(team_seasons, market_values)
+    elif value_source == "same_season":
+        resource = team_seasons.copy()
+        groups = ["league_name", "season_year"]
+        resource["market_gini"] = resource.groupby(groups)[
+            "total_market_value_euros"
+        ].transform(gini)
+        resource["relative_log_market"] = resource["log_market_value"] - resource.groupby(
+            groups
+        )["log_market_value"].transform("mean")
+        resource = resource.dropna(subset=["relative_log_market", "market_gini"])
+    else:
+        raise ValueError(f"Unknown value source: {value_source}")
+
+    resource = resource.copy()
+    market_sd = resource["relative_log_market"].std(ddof=0)
+    gini_sd = resource["market_gini"].std(ddof=0)
+    if market_sd <= 0 or gini_sd <= 0:
+        raise ValueError("Mechanism resource modifiers require positive variation")
+    resource["relative_market_z"] = (
+        resource["relative_log_market"] - resource["relative_log_market"].mean()
+    ) / market_sd
+    resource["market_gini_z"] = (
+        resource["market_gini"] - resource["market_gini"].mean()
+    ) / gini_sd
+    keys = ["league_name", "season_year", "team_canonical"]
+    return resource[keys + ["relative_market_z", "market_gini_z"]].drop_duplicates(keys)
+
+
+def _fit_mechanism_model(
+    data: pd.DataFrame,
+    variables: list[str],
+    covariance: str,
+):
+    required = [
+        "points",
+        "team_season_id",
+        "match_id",
+        "league_name",
+        *variables,
+    ]
+    clean = data.dropna(subset=required).copy()
+    means = clean.groupby("team_season_id")[["points", *variables]].transform("mean")
+    demeaned = clean[["points", *variables]] - means
+    keep = demeaned[variables].std().loc[lambda values: values > 1e-10].index.tolist()
+    model = sm.OLS(demeaned["points"], demeaned[keep])
+    if covariance == "team_season_and_fixture":
+        clusters = np.column_stack(
+            [
+                pd.factorize(clean["team_season_id"], sort=True)[0],
+                pd.factorize(clean["match_id"], sort=True)[0],
+            ]
+        )
+        fitted = model.fit(
+            cov_type="cluster",
+            cov_kwds={
+                "groups": clusters,
+                "use_correction": True,
+                "df_correction": True,
+            },
+        )
+    elif covariance == "league_small_sample_t":
+        fitted = model.fit(
+            cov_type="cluster",
+            cov_kwds={
+                "groups": pd.factorize(clean["league_name"], sort=True)[0],
+                "use_correction": True,
+                "df_correction": True,
+            },
+            use_t=True,
+        )
+    else:
+        raise ValueError(f"Unknown covariance: {covariance}")
+    return clean, fitted, keep
+
+
+def run_mechanism_falsification(
+    team_seasons: pd.DataFrame,
+    team_matches: pd.DataFrame,
+    market_values: pd.DataFrame,
+    tables: Path,
+    figures: Path,
+    config: dict,
+) -> dict:
+    window = int(config["window"])
+    minimum_periods = int(config["minimum_periods"])
+    alpha = float(config["alpha"])
+    margin = float(config["equivalence_margin_points"])
+    matches = fixed_elo_local_shocks(
+        team_matches,
+        window=window,
+        minimum_periods=minimum_periods,
+    ).rename(
+        columns={
+            f"fixed_elo_shock_lag{window}": "past_shock",
+            f"fixed_elo_shock_lead{window}": "future_shock",
+        }
+    )
+    matches["own_elo_100"] = matches["own_elo_pre"] / 100
+    matches["opponent_elo_100"] = matches["opponent_elo_pre"] / 100
+    matches["rest_days_capped"] = matches["rest_days"].clip(
+        upper=float(config["rest_days_cap"])
+    )
+    matches["short_rest"] = (
+        matches["rest_days"] <= float(config["short_rest_max_days"])
+    ).astype(float)
+    matches["long_recovery"] = (
+        matches["rest_days"] >= float(config["long_rest_min_days"])
+    ).astype(float)
+    max_match = matches.groupby("team_season_id")["match_number"].transform("max")
+    matches["season_progress"] = matches["match_number"] / max_match
+
+    interaction_names = [
+        "past_x_short_rest",
+        "past_x_long_recovery",
+        "past_x_resource",
+        "past_x_gini",
+        "past_x_resource_x_gini",
+        "future_x_short_rest",
+        "future_x_long_recovery",
+        "future_x_resource",
+        "future_x_gini",
+        "future_x_resource_x_gini",
+    ]
+    controls = [
+        "past_shock",
+        "future_shock",
+        "short_rest",
+        "long_recovery",
+        "own_elo_100",
+        "opponent_elo_100",
+        "is_home",
+        "rest_days_capped",
+        "season_progress",
+    ]
+    variables = [*controls, *interaction_names]
+    coefficient_rows = []
+    coverage_rows = []
+    fitted_models = {}
+    for value_source in ("preceding_season", "same_season"):
+        resource = _mechanism_resource_frame(team_seasons, market_values, value_source)
+        data = matches.merge(
+            resource,
+            on=["league_name", "season_year", "team_canonical"],
+            how="inner",
+            validate="many_to_one",
+        )
+        for timing in ("past", "future"):
+            shock = f"{timing}_shock"
+            data[f"{timing}_x_short_rest"] = data[shock] * data["short_rest"]
+            data[f"{timing}_x_long_recovery"] = data[shock] * data["long_recovery"]
+            data[f"{timing}_x_resource"] = data[shock] * data["relative_market_z"]
+            data[f"{timing}_x_gini"] = data[shock] * data["market_gini_z"]
+            data[f"{timing}_x_resource_x_gini"] = (
+                data[shock] * data["relative_market_z"] * data["market_gini_z"]
+            )
+        for covariance in ("team_season_and_fixture", "league_small_sample_t"):
+            clean, fitted, retained = _fit_mechanism_model(data, variables, covariance)
+            fitted_models[(value_source, covariance)] = fitted
+            within = clean[retained] - clean.groupby("team_season_id")[retained].transform(
+                "mean"
+            )
+            standardized = within / within.std(ddof=0)
+            correlation = standardized.corr().to_numpy()
+            eigenvalues = np.linalg.eigvalsh(correlation)
+            positive_eigenvalues = eigenvalues[eigenvalues > 1e-10]
+            condition_number = float(
+                np.sqrt(positive_eigenvalues.max() / positive_eigenvalues.min())
+            )
+            target_correlations = standardized[interaction_names].corr().to_numpy()
+            target_correlations[np.diag_indices_from(target_correlations)] = np.nan
+            table = _coefficient_table(fitted, retained)
+            table["value_source"] = value_source
+            table["covariance"] = covariance
+            table["team_seasons"] = clean["team_season_id"].nunique()
+            table["fixtures"] = clean["match_id"].nunique()
+            table["leagues"] = clean["league_name"].nunique()
+            coefficient_rows.extend(table.to_dict("records"))
+            coverage_rows.append(
+                {
+                    "value_source": value_source,
+                    "covariance": covariance,
+                    "team_match_rows": len(clean),
+                    "team_seasons": clean["team_season_id"].nunique(),
+                    "fixtures": clean["match_id"].nunique(),
+                    "leagues": clean["league_name"].nunique(),
+                    "past_shock_sd": clean["past_shock"].std(),
+                    "future_shock_sd": clean["future_shock"].std(),
+                    "past_future_shock_correlation": clean[
+                        ["past_shock", "future_shock"]
+                    ].corr().iloc[0, 1],
+                    "short_rest_rate": clean["short_rest"].mean(),
+                    "long_recovery_rate": clean["long_recovery"].mean(),
+                    "short_rest_rows": int(clean["short_rest"].sum()),
+                    "long_recovery_rows": int(clean["long_recovery"].sum()),
+                    "standardized_design_condition_number": condition_number,
+                    "maximum_absolute_target_correlation": float(
+                        np.nanmax(np.abs(target_correlations))
+                    ),
+                }
+            )
+    coefficient_table = pd.DataFrame(coefficient_rows)
+    _save_table(coefficient_table, tables / "mechanism_model_coefficients.csv")
+    _save_table(pd.DataFrame(coverage_rows), tables / "mechanism_model_coverage.csv")
+
+    definitions = [
+        ("F1", "fatigue_under_short_rest", "past_x_short_rest", "future_x_short_rest", -1),
+        (
+            "A1",
+            "adaptation_after_long_recovery",
+            "past_x_long_recovery",
+            "future_x_long_recovery",
+            1,
+        ),
+        ("R1", "resource_buffering", "past_x_resource", "future_x_resource", 1),
+        (
+            "R2",
+            "buffering_weakens_with_inequality",
+            "past_x_resource_x_gini",
+            "future_x_resource_x_gini",
+            -1,
+        ),
+    ]
+    primary = fitted_models[("preceding_season", "team_season_and_fixture")]
+    conservative = fitted_models[("preceding_season", "league_small_sample_t")]
+    rows = []
+    for identifier, mechanism, past_term, future_term, expected_sign in definitions:
+        estimate = float(primary.params[past_term])
+        std_error = float(primary.bse[past_term])
+        z_value = estimate / std_error
+        directional_p = float(norm.sf(z_value) if expected_sign > 0 else norm.cdf(z_value))
+        future_estimate = float(primary.params[future_term])
+        future_std_error = float(primary.bse[future_term])
+        equivalence = _equivalence_test(future_estimate, future_std_error, margin)
+        conservative_estimate = float(conservative.params[past_term])
+        conservative_std_error = float(conservative.bse[past_term])
+        conservative_sign_compatible = bool(
+            np.sign(conservative_estimate) == expected_sign
+        )
+        conservative_two_sided_p = float(conservative.pvalues[past_term])
+        rows.append(
+            {
+                "id": identifier,
+                "mechanism": mechanism,
+                "past_term": past_term,
+                "expected_sign": expected_sign,
+                "estimate": estimate,
+                "std_error": std_error,
+                "ci95_low": estimate - 1.96 * std_error,
+                "ci95_high": estimate + 1.96 * std_error,
+                "directional_p_value": directional_p,
+                "conservative_league_estimate": conservative_estimate,
+                "conservative_league_std_error": conservative_std_error,
+                "conservative_league_ci95_low": float(
+                    conservative.conf_int().loc[past_term, 0]
+                ),
+                "conservative_league_ci95_high": float(
+                    conservative.conf_int().loc[past_term, 1]
+                ),
+                "conservative_directional_p_value": (
+                    conservative_two_sided_p / 2
+                    if conservative_sign_compatible
+                    else 1 - conservative_two_sided_p / 2
+                ),
+                "conservative_sign_compatible": conservative_sign_compatible,
+                "future_term": future_term,
+                "future_estimate": future_estimate,
+                "future_std_error": future_std_error,
+                **equivalence,
+            }
+        )
+    gate = pd.DataFrame(rows)
+    gate["directional_holm_p"] = multipletests(
+        gate["directional_p_value"], alpha=alpha, method="holm"
+    )[1]
+    gate["equivalence_holm_p"] = multipletests(
+        gate["equivalence_p_value"], alpha=alpha, method="holm"
+    )[1]
+    directional_pass = gate["directional_holm_p"] < alpha
+    equivalence_pass = (
+        (gate["equivalence_holm_p"] < alpha) & gate["inside_margin"]
+    )
+    supported = directional_pass & gate["conservative_sign_compatible"] & equivalence_pass
+    gate["classification"] = np.where(
+        supported,
+        "supported",
+        np.where(directional_pass, "signal_not_identified", "unsupported"),
+    )
+    _save_table(gate, tables / "mechanism_falsification_gate.csv")
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    positions = np.arange(len(gate))
+    ax.errorbar(
+        gate["estimate"],
+        positions - 0.10,
+        xerr=1.96 * gate["std_error"],
+        fmt="o",
+        label="past shock (95% CI)",
+    )
+    ax.errorbar(
+        gate["future_estimate"],
+        positions + 0.10,
+        xerr=float(norm.ppf(0.95)) * gate["future_std_error"],
+        fmt="s",
+        label="future control (90% CI)",
+    )
+    ax.axvline(0, color="black", linewidth=1)
+    ax.axvspan(-margin, margin, color="grey", alpha=0.15, label="equivalence region")
+    ax.set_yticks(positions, gate["id"] + ": " + gate["mechanism"])
+    ax.set(
+        xlabel="Points per 100-Elo shock interaction",
+        title="Predeclared mechanism implications and future controls",
+    )
+    ax.legend()
+    _save_figure(fig, figures / "mechanism_falsification.png")
+
+    supported_ids = set(gate.loc[gate["classification"] == "supported", "id"])
+    return {
+        "tested_implications": len(gate),
+        "supported_implications": len(supported_ids),
+        "resource_buffering_explanation_supported": {"R1", "R2"}.issubset(
+            supported_ids
+        ),
+        "primary_team_match_rows": int(
+            pd.DataFrame(coverage_rows)
+            .query(
+                "value_source == 'preceding_season' and "
+                "covariance == 'team_season_and_fixture'"
+            )["team_match_rows"]
+            .iloc[0]
+        ),
+    }
+
+
 def run_mvp1(
     standings: pd.DataFrame,
     team_matches: pd.DataFrame,
@@ -279,6 +639,7 @@ def run_mvp3(
     figures: Path,
     criteria: dict,
     market_values: pd.DataFrame | None = None,
+    mechanism_config: dict | None = None,
 ) -> dict:
     data = team_seasons.copy()
     group = ["league_name", "season_year"]
@@ -825,6 +1186,16 @@ def run_mvp3(
         and minimum_cell_n >= 100
     )
     status = "avançar" if viable and robust and meaningful else "reformular"
+    mechanism_result = {}
+    if market_values is not None and mechanism_config is not None:
+        mechanism_result = run_mechanism_falsification(
+            team_seasons,
+            team_matches,
+            market_values,
+            tables,
+            figures,
+            mechanism_config,
+        )
     return {
         "mvp": 3,
         "status": status,
@@ -858,10 +1229,11 @@ def run_mvp3(
         "preseason_elo_ci_low": float(preseason_elo_result["ci_low"]),
         "preseason_elo_ci_high": float(preseason_elo_result["ci_high"]),
         "preseason_elo_p_value": float(preseason_elo_result["p_value"]),
+        **{f"mechanism_{key}": value for key, value in mechanism_result.items()},
         "interpretation": (
             "Observational moderation with sign-compatible temporal holdout and fixed "
             "season-start Elo; conservative league-clustered and lagged-value intervals "
-            "include zero."
+            "include zero. No predeclared three-match mechanism implication was supported."
         ),
     }
 

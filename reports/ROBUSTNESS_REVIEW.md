@@ -67,10 +67,24 @@ calendars are systematically more imbalanced than the modeled alternatives.
   proxy-specific season anomalies as replicated findings.
 - **MVP 5:** tested linear attendance mechanism remains unsupported.
 
+## Predeclared mechanism gate
+
+The post-review mechanism plan was committed before execution. It tested four
+three-match implications on 160,382 team-match rows with fixed season-start Elo,
+preceding-season financial variables, team-season fixed effects, two-way clustered
+inference and symmetric future-schedule controls.
+
+No implication passes the directional Holm family. Short-rest fatigue and
+long-recovery adaptation remain too imprecise for strong exclusion. Financial
+buffering and its inequality attenuation are near zero with 95% intervals inside
+the ±0.05 minimum-effect range; their future controls pass Holm-adjusted
+equivalence. The same-season sensitivity is likewise null. The stable MVP 3 sign
+therefore remains unexplained at a three-match horizon.
+
 ## Remaining threat hierarchy
 
-1. **Mechanism ambiguity:** the interaction describes who differs, but not whether
-   fatigue, adaptation, depth or another process explains the pattern.
+1. **Mechanism ambiguity:** predeclared three-match fatigue, adaptation and depth
+   implications fail; a cumulative season-path process remains untested.
 2. **Financial timing:** no dated pre-season snapshots exist in the released data.
 3. **Dependence and power:** 20 independent leagues make conservative inference
    materially wider than league-season clustering.
@@ -80,10 +94,8 @@ calendars are systematically more imbalanced than the modeled alternatives.
 
 ## Recommended next gate
 
-Before article writing, predeclare and run a mechanism-falsification matrix on the
-existing match panel. Each proposed mechanism should have at least one positive
-implication and one negative-control implication, with a fixed outcome, window and
-multiple-testing family. The goal is not to find another significant coefficient;
-it is to determine whether any mechanism explains the stable MVP 3 direction while
-remaining compatible with the precise MVP 2 and MVP 5 nulls.
-
+Before article writing, reconcile the season-level and match-level scales. Use a
+fixed set of cumulative early-, middle- and late-season exposure paths, the existing
+late temporal holdout and symmetric future-order controls. The goal is to determine
+whether MVP 3 reflects a distributed seasonal path or residual schedule geometry,
+not to search additional rolling-window specifications.

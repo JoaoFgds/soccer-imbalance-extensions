@@ -138,6 +138,71 @@ def season_start_elo_ssb(team_matches: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def fixed_elo_local_shocks(
+    team_matches: pd.DataFrame,
+    window: int = 3,
+    minimum_periods: int = 3,
+) -> pd.DataFrame:
+    """Add symmetric past/future shocks from ratings fixed at season start."""
+    if window < 1 or minimum_periods < 1 or minimum_periods > window:
+        raise ValueError("Window must be positive and minimum_periods within window")
+    key = ["league_name", "season_year", "team_canonical"]
+    initial = (
+        team_matches.sort_values(key + ["kickoff", "match_id"])
+        .groupby(key, as_index=False)
+        .first()[key + ["own_elo_pre"]]
+        .rename(
+            columns={
+                "team_canonical": "opponent_canonical",
+                "own_elo_pre": "opponent_season_start_elo",
+            }
+        )
+    )
+    league_mean = initial.groupby(["league_name", "season_year"])[
+        "opponent_season_start_elo"
+    ].mean()
+    working = team_matches.copy()
+    working["_original_order"] = np.arange(len(working))
+    working = working.merge(
+        initial,
+        on=["league_name", "season_year", "opponent_canonical"],
+        how="left",
+        validate="many_to_one",
+    ).sort_values(key + ["kickoff", "match_id"])
+    working["season_start_elo_mean"] = pd.MultiIndex.from_frame(
+        working[["league_name", "season_year"]]
+    ).map(league_mean)
+
+    groups = working.groupby(key)["opponent_season_start_elo"]
+    lag_strength = f"fixed_elo_strength_lag{window}"
+    lead_strength = f"fixed_elo_strength_lead{window}"
+    lag_shock = f"fixed_elo_shock_lag{window}"
+    lead_shock = f"fixed_elo_shock_lead{window}"
+    working[lag_strength] = groups.transform(
+        lambda values: values.shift(1).rolling(window, min_periods=minimum_periods).mean()
+    )
+
+    def future_mean(values: pd.Series) -> pd.Series:
+        reversed_values = values.iloc[::-1]
+        return (
+            reversed_values.shift(1)
+            .rolling(window, min_periods=minimum_periods)
+            .mean()
+            .iloc[::-1]
+        )
+
+    working[lead_strength] = groups.transform(future_mean)
+    working[lag_shock] = (
+        working[lag_strength] - working["season_start_elo_mean"]
+    ) / 100.0
+    working[lead_shock] = (
+        working[lead_strength] - working["season_start_elo_mean"]
+    ) / 100.0
+    return working.sort_values("_original_order").drop(columns="_original_order").reset_index(
+        drop=True
+    )
+
+
 def gini(values: pd.Series) -> float:
     array = np.sort(values.dropna().to_numpy(dtype=float))
     array = array[array >= 0]

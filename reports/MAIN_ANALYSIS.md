@@ -126,11 +126,32 @@ that the released values are independently verified pre-season snapshots, or tha
 poorer clubs are especially harmed in the most unequal leagues. It also does not
 support a homogeneous effect across eras or a replicated list of anomalous seasons.
 
+## Mechanism-falsification result
+
+The four match-level implications were committed before execution and evaluated in
+one joint model on 160,382 ordered team-match observations. None survives the
+predeclared directional Holm family:
+
+- short-rest fatigue: +0.0099 points, 95% CI [-0.0742, 0.0939];
+- long-recovery adaptation: +0.0001, 95% CI [-0.0612, 0.0613];
+- financial resource buffering: -0.0007, 95% CI [-0.0323, 0.0309];
+- attenuation of buffering with inequality: -0.0023, 95% CI
+  [-0.0283, 0.0238].
+
+The resource-related future controls pass multiplicity-adjusted equivalence, and
+the past resource intervals are entirely inside the ±0.05 minimum-effect range.
+The same-season sensitivity is also null. Thus the stable season-level MVP 3 sign
+cannot currently be explained by a three-match fatigue, adaptation or financial
+buffering process.
+
+An exploratory hierarchy diagnostic finds that future schedule shock varies with
+current performance by league inequality. This reinforces the need to model
+calendar geometry before attaching a causal mechanism to SSB.
+
 ## Next analysis gate before article writing
 
-The next highest-value step is mechanism falsification, not prose. Predeclare a
-small set of observable implications that distinguish fatigue/adaptation from
-resource-buffering explanations, and test them on the existing match panel without
-selecting specifications from the observed p-values. Article drafting should wait
-until that gate either identifies a coherent mechanism or demonstrates that the
-heterogeneity is predictive but not mechanistically resolved.
+The next highest-value step is scale reconciliation: predeclare cumulative early-,
+middle- and late-season exposure-path tests rather than search over more rolling
+windows. The temporal holdout and symmetric future-order controls should remain
+mandatory. Article drafting should still wait because the heterogeneity is robust
+in direction but mechanistically unresolved.

@@ -5,6 +5,7 @@ import pandas as pd
 
 from soccer_imbalance_extensions.analysis import (
     _build_lagged_market_data,
+    _equivalence_test,
     _linear_combination,
     _permutation_null,
 )
@@ -23,6 +24,16 @@ def test_linear_combination_uses_full_covariance_matrix():
     result = _linear_combination(StubModel(), {"a": 1.0, "b": 2.0})
     assert result["estimate"] == 0.0
     assert result["std_error"] == np.sqrt(4.25)
+
+
+def test_equivalence_requires_entire_90_percent_interval_inside_margin():
+    equivalent = _equivalence_test(0.0, 0.01, 0.05)
+    outside = _equivalence_test(0.06, 0.01, 0.05)
+
+    assert equivalent["inside_margin"]
+    assert equivalent["equivalence_p_value"] < 0.05
+    assert not outside["inside_margin"]
+    assert outside["equivalence_p_value"] > 0.05
 
 
 def round_robin_frame():

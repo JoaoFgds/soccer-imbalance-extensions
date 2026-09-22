@@ -43,6 +43,16 @@ pre-match rating.
 
 All estimates are associations. The MVPs do not justify causal claims.
 
+## Post-MVP mechanism gate
+
+The timestamped mechanism plan uses exactly three preceding opponents measured by
+fixed season-start Elo and a symmetric three-future-opponent control. One joint
+within-team-season model tests short-rest fatigue, long-recovery adaptation,
+financial resource buffering and attenuation by inequality. Directional tests use
+Holm family-wise correction. Future controls use two one-sided equivalence tests
+inside ±0.05 points, also Holm-adjusted. Primary covariance is two-way clustered by
+team-season and fixture; 20-league clustering is reported as a sensitivity.
+
 ## Assumptions
 
 The article labels the financial data as pre-season, but this label is not
