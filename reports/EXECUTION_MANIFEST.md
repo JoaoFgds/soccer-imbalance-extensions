@@ -1,7 +1,7 @@
 # Execution manifest
 
 - Execution date: 2026-09-22 (America/Sao_Paulo)
-- Results-generating commit: pending robustness-pass commit
+- Results-generating commit: `875bf40`
 - Python: 3.12.11
 - Dependency resolution: `uv.lock`
 - Random seed: `20260922`
