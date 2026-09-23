@@ -59,9 +59,7 @@ buffering mechanism is both unsupported and bounded inside the minimum effect of
 interest. MVP 3 therefore remains a season-level observational heterogeneity that
 has not been connected to a validated short-run process.
 
-The next analytical gate should reconcile scale: test a fixed set of cumulative
-early-, middle- and late-season exposure paths rather than another local rolling
-window. That gate should retain the same future-order controls and temporal
-holdout, because the Gini-related negative-control diagnostic shows that schedule
-geometry itself can carry predictive structure.
-
+The subsequent cumulative-path gate was precommitted and completed. Its measurement
+bridge passes, but none of six phase-specific implications passes the full gate.
+See `reports/FINAL_ANALYTICAL_GATE.md` for the final classification and analysis
+freeze.

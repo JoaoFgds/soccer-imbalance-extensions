@@ -67,6 +67,7 @@ def run_pipeline(source_root: Path, project_root: Path, only: int | None = None)
                 config["criteria"],
                 market_values,
                 config["mechanism"],
+                config["cumulative_gate"],
             )
         )
     if only in (None, 4):

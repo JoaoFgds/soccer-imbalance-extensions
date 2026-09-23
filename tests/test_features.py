@@ -5,6 +5,7 @@ from soccer_imbalance_extensions.data import canonicalize
 from soccer_imbalance_extensions.features import (
     add_elo,
     continuous_ssb,
+    fixed_elo_cumulative_shocks,
     fixed_elo_local_shocks,
     gini,
     schedule_balance_from_strength,
@@ -117,3 +118,31 @@ def test_fixed_elo_local_shocks_exclude_current_opponent_symmetrically():
     assert middle["fixed_elo_strength_lead2"] == 1450
     assert middle["fixed_elo_shock_lag2"] == -1
     assert middle["fixed_elo_shock_lead2"] == 2
+
+
+def test_fixed_elo_cumulative_shocks_expand_without_current_opponent():
+    teams = list("abcdef")
+    strength = {team: 1000 + 100 * index for index, team in enumerate(teams)}
+    rows = []
+    for team in teams:
+        opponents = [opponent for opponent in teams if opponent != team]
+        for match_number, opponent in enumerate(opponents, 1):
+            rows.append(
+                {
+                    "league_name": "league",
+                    "season_year": 2024,
+                    "team_canonical": team,
+                    "opponent_canonical": opponent,
+                    "kickoff": pd.Timestamp("2024-01-01")
+                    + pd.Timedelta(match_number, unit="D"),
+                    "match_id": f"{team}-{match_number}",
+                    "own_elo_pre": strength[team],
+                }
+            )
+    result = fixed_elo_cumulative_shocks(pd.DataFrame(rows), minimum_periods=2)
+    fourth = result[result["team_canonical"] == "a"].iloc[3]
+
+    assert fourth["opponent_canonical"] == "e"
+    assert fourth["cumulative_past_strength"] == 1200
+    assert pd.isna(fourth["cumulative_future_strength"])
+    assert fourth["cumulative_past_shock"] == -0.5

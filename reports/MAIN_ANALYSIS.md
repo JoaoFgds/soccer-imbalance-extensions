@@ -148,10 +148,28 @@ An exploratory hierarchy diagnostic finds that future schedule shock varies with
 current performance by league inequality. This reinforces the need to model
 calendar geometry before attaching a causal mechanism to SSB.
 
-## Next analysis gate before article writing
+## Final cumulative-path gate
 
-The next highest-value step is scale reconciliation: predeclare cumulative early-,
-middle- and late-season exposure-path tests rather than search over more rolling
-windows. The temporal holdout and symmetric future-order controls should remain
-mandatory. Article drafting should still wait because the heterogeneity is robust
-in direction but mechanistically unresolved.
+The phase-path contrast is strongly connected to SSB: across 5,576 team-seasons,
+the early-minus-late opponent-strength contrast correlates 0.733 with fixed-start
+SSB, and 18 of 20 league-specific correlations exceed the predeclared 0.60
+threshold. The season-level and cumulative-path measures therefore represent the
+same underlying order pattern.
+
+That measurement bridge does not produce an outcome mechanism. None of six
+predeclared early/middle/late resource implications passes Holm correction, none
+passes conservative league-clustered inference and none has an equivalent matched
+future control. The middle-phase estimates have the hypothesized full-sample signs
+but are imprecise, and the inequality component reverses in the holdout. Late-phase
+resource buffering has the opposite sign.
+
+The final classification is **scale linked, mechanism not identified**. Both local
+and cumulative tests fail to connect MVP 3 to a temporal performance process.
+
+## Analysis freeze and writing readiness
+
+The planned analyses are complete. Additional searches over windows, phase cutoffs
+or subgroups would weaken rather than strengthen the evidential design. The claims
+should now be frozen and article writing can begin, centered on a precise average
+null, robust-but-unexplained observational heterogeneity and a counterfactual
+benchmark with no systematic excess calendar imbalance.

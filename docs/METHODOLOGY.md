@@ -53,6 +53,18 @@ Holm family-wise correction. Future controls use two one-sided equivalence tests
 inside ±0.05 points, also Holm-adjusted. Primary covariance is two-way clustered by
 team-season and fixture; 20-league clustering is reported as a sensitivity.
 
+## Final cumulative-path gate
+
+The final gate maps fixed-start-Elo SSB to the early-minus-late strength path and
+requires an overall Spearman correlation of at least 0.60. Match models use all
+prior opponent strength separately from all future opponent strength on an
+identical sample with at least three matches on each side. Early, middle and late
+resource and inequality interactions form a six-test Holm family. Support also
+requires conservative league-clustered directional p < 0.10, sign compatibility in
+the 2018–2024 holdout and Holm-adjusted future-control equivalence inside ±0.05
+points. A cumulative explanation requires both resource and inequality implications
+to pass in the same middle or late phase.
+
 ## Assumptions
 
 The article labels the financial data as pre-season, but this label is not

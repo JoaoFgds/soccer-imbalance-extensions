@@ -16,6 +16,7 @@ from statsmodels.stats.multitest import multipletests
 
 from .features import (
     continuous_ssb,
+    fixed_elo_cumulative_shocks,
     fixed_elo_local_shocks,
     gini,
     schedule_balance_from_strength,
@@ -509,6 +510,403 @@ def run_mechanism_falsification(
     }
 
 
+def run_cumulative_path_gate(
+    team_seasons: pd.DataFrame,
+    team_matches: pd.DataFrame,
+    market_values: pd.DataFrame,
+    tables: Path,
+    figures: Path,
+    config: dict,
+) -> dict:
+    minimum_matches = int(config["minimum_past_matches"])
+    early_max = float(config["early_phase_max"])
+    middle_max = float(config["middle_phase_max"])
+    alpha = float(config["alpha"])
+    conservative_alpha = float(config["conservative_alpha"])
+    margin = float(config["equivalence_margin_points"])
+    measurement_minimum = float(config["measurement_correlation_minimum"])
+
+    matches = fixed_elo_cumulative_shocks(
+        team_matches,
+        minimum_periods=minimum_matches,
+    )
+    max_match = matches.groupby("team_season_id")["match_number"].transform("max")
+    matches["season_progress"] = matches["match_number"] / max_match
+    matches["phase"] = np.select(
+        [
+            matches["season_progress"] <= early_max,
+            matches["season_progress"] <= middle_max,
+        ],
+        ["early", "middle"],
+        default="late",
+    )
+    matches["phase_middle"] = (matches["phase"] == "middle").astype(float)
+    matches["phase_late"] = (matches["phase"] == "late").astype(float)
+    matches["own_elo_100"] = matches["own_elo_pre"] / 100
+    matches["opponent_elo_100"] = matches["opponent_elo_pre"] / 100
+    matches["opponent_start_elo_100"] = matches["opponent_season_start_elo"] / 100
+    matches["rest_days_capped"] = matches["rest_days"].clip(
+        upper=float(config["rest_days_cap"])
+    )
+
+    keys = ["league_name", "season_year", "team_canonical"]
+    phase_strength = (
+        matches.groupby([*keys, "phase"])["opponent_season_start_elo"]
+        .mean()
+        .unstack("phase")
+        .reset_index()
+    )
+    phase_strength["early_late_strength_contrast"] = (
+        phase_strength["early"] - phase_strength["late"]
+    )
+    fixed_ssb = season_start_elo_ssb(team_matches)
+    measurement = phase_strength.merge(
+        fixed_ssb[keys + ["ssb_preseason_elo"]],
+        on=keys,
+        how="left",
+        validate="one_to_one",
+    )
+    valid_measurement = measurement.dropna(
+        subset=["early_late_strength_contrast", "ssb_preseason_elo"]
+    )
+    measurement_correlation = float(
+        spearmanr(
+            valid_measurement["early_late_strength_contrast"],
+            valid_measurement["ssb_preseason_elo"],
+        ).statistic
+    )
+    measurement_pass = bool(measurement_correlation >= measurement_minimum)
+    _save_table(measurement, tables / "cumulative_path_measurement.csv")
+    measurement_by_league_rows = []
+    for league_name, frame in valid_measurement.groupby("league_name"):
+        measurement_by_league_rows.append(
+            {
+                "league_name": league_name,
+                "team_seasons": len(frame),
+                "spearman_path_ssb": float(
+                    spearmanr(
+                        frame["early_late_strength_contrast"],
+                        frame["ssb_preseason_elo"],
+                    ).statistic
+                ),
+            }
+        )
+    measurement_by_league = pd.DataFrame(measurement_by_league_rows)
+    measurement_by_league["passes_overall_threshold"] = (
+        measurement_by_league["spearman_path_ssb"] >= measurement_minimum
+    )
+    _save_table(
+        measurement_by_league,
+        tables / "cumulative_path_measurement_by_league.csv",
+    )
+    _save_table(
+        pd.DataFrame(
+            [
+                {
+                    "team_seasons": len(valid_measurement),
+                    "spearman_path_ssb": measurement_correlation,
+                    "minimum_required": measurement_minimum,
+                    "measurement_bridge_pass": measurement_pass,
+                }
+            ]
+        ),
+        tables / "cumulative_path_measurement_summary.csv",
+    )
+
+    controls = [
+        "own_elo_100",
+        "opponent_elo_100",
+        "opponent_start_elo_100",
+        "is_home",
+        "rest_days_capped",
+        "season_progress",
+        "phase_middle",
+        "phase_late",
+    ]
+    phases = ("early", "middle", "late")
+    coefficient_rows = []
+    coverage_rows = []
+    geometry_rows = []
+    fitted_models = {}
+    for value_source in ("preceding_season", "same_season"):
+        resource = _mechanism_resource_frame(team_seasons, market_values, value_source)
+        data = matches.merge(
+            resource,
+            on=keys,
+            how="inner",
+            validate="many_to_one",
+        ).dropna(subset=["cumulative_past_shock", "cumulative_future_shock"])
+        for period, period_data in (
+            ("full", data),
+            ("holdout_2018_2024", data[data["season_year"].between(2018, 2024)]),
+        ):
+            for phase in ("all", *phases):
+                phase_data = (
+                    period_data if phase == "all" else period_data[period_data["phase"] == phase]
+                )
+                geometry_rows.append(
+                    {
+                        "value_source": value_source,
+                        "period": period,
+                        "phase": phase,
+                        "team_match_rows": len(phase_data),
+                        "past_shock_sd": phase_data["cumulative_past_shock"].std(),
+                        "future_shock_sd": phase_data["cumulative_future_shock"].std(),
+                        "past_future_shock_correlation": phase_data[
+                            ["cumulative_past_shock", "cumulative_future_shock"]
+                        ].corr().iloc[0, 1],
+                    }
+                )
+        for timing in ("past", "future"):
+            shock = f"cumulative_{timing}_shock"
+            interaction_names = []
+            for phase in phases:
+                phase_indicator = (data["phase"] == phase).astype(float)
+                base = f"{timing}_shock_{phase}"
+                resource_term = f"{timing}_resource_{phase}"
+                gini_term = f"{timing}_gini_{phase}"
+                triple_term = f"{timing}_resource_gini_{phase}"
+                data[base] = data[shock] * phase_indicator
+                data[resource_term] = (
+                    data[shock] * data["relative_market_z"] * phase_indicator
+                )
+                data[gini_term] = data[shock] * data["market_gini_z"] * phase_indicator
+                data[triple_term] = (
+                    data[shock]
+                    * data["relative_market_z"]
+                    * data["market_gini_z"]
+                    * phase_indicator
+                )
+                interaction_names.extend([base, resource_term, gini_term, triple_term])
+            variables = [*controls, *interaction_names]
+            for period, period_data in (
+                ("full", data),
+                ("holdout_2018_2024", data[data["season_year"].between(2018, 2024)]),
+            ):
+                covariances = (
+                    ("team_season_and_fixture", "league_small_sample_t")
+                    if period == "full"
+                    else ("team_season_and_fixture",)
+                )
+                for covariance in covariances:
+                    clean, fitted, retained = _fit_mechanism_model(
+                        period_data,
+                        variables,
+                        covariance,
+                    )
+                    fitted_models[(value_source, period, timing, covariance)] = fitted
+                    table = _coefficient_table(fitted, retained)
+                    table["value_source"] = value_source
+                    table["period"] = period
+                    table["timing"] = timing
+                    table["covariance"] = covariance
+                    coefficient_rows.extend(table.to_dict("records"))
+                    target_terms = [
+                        term
+                        for term in interaction_names
+                        if "resource_" in term
+                        and "gini_" not in term.replace("resource_gini_", "")
+                    ]
+                    target_terms.extend(
+                        [term for term in interaction_names if "resource_gini_" in term]
+                    )
+                    target_terms = list(dict.fromkeys(target_terms))
+                    within_targets = clean[target_terms] - clean.groupby(
+                        "team_season_id"
+                    )[target_terms].transform("mean")
+                    target_correlation = within_targets.corr().to_numpy()
+                    target_correlation[np.diag_indices_from(target_correlation)] = np.nan
+                    coverage_rows.append(
+                        {
+                            "value_source": value_source,
+                            "period": period,
+                            "timing": timing,
+                            "covariance": covariance,
+                            "team_match_rows": len(clean),
+                            "team_seasons": clean["team_season_id"].nunique(),
+                            "fixtures": clean["match_id"].nunique(),
+                            "leagues": clean["league_name"].nunique(),
+                            "shock_sd": clean[shock].std(),
+                            "early_rows": int((clean["phase"] == "early").sum()),
+                            "middle_rows": int((clean["phase"] == "middle").sum()),
+                            "late_rows": int((clean["phase"] == "late").sum()),
+                            "maximum_absolute_target_correlation": float(
+                                np.nanmax(np.abs(target_correlation))
+                            ),
+                        }
+                    )
+    _save_table(
+        pd.DataFrame(coefficient_rows),
+        tables / "cumulative_path_model_coefficients.csv",
+    )
+    _save_table(
+        pd.DataFrame(coverage_rows),
+        tables / "cumulative_path_model_coverage.csv",
+    )
+    _save_table(
+        pd.DataFrame(geometry_rows),
+        tables / "cumulative_path_schedule_geometry.csv",
+    )
+
+    definitions = []
+    for prefix, phase in (("E", "early"), ("M", "middle"), ("L", "late")):
+        definitions.extend(
+            [
+                (
+                    f"{prefix}1",
+                    phase,
+                    "resource_buffering",
+                    f"past_resource_{phase}",
+                    f"future_resource_{phase}",
+                    1,
+                ),
+                (
+                    f"{prefix}2",
+                    phase,
+                    "buffering_weakens_with_inequality",
+                    f"past_resource_gini_{phase}",
+                    f"future_resource_gini_{phase}",
+                    -1,
+                ),
+            ]
+        )
+    primary = fitted_models[
+        ("preceding_season", "full", "past", "team_season_and_fixture")
+    ]
+    conservative = fitted_models[
+        ("preceding_season", "full", "past", "league_small_sample_t")
+    ]
+    holdout = fitted_models[
+        ("preceding_season", "holdout_2018_2024", "past", "team_season_and_fixture")
+    ]
+    future = fitted_models[
+        ("preceding_season", "full", "future", "team_season_and_fixture")
+    ]
+    gate_rows = []
+    for identifier, phase, implication, past_term, future_term, expected_sign in definitions:
+        estimate = float(primary.params[past_term])
+        std_error = float(primary.bse[past_term])
+        z_value = estimate / std_error
+        directional_p = float(norm.sf(z_value) if expected_sign > 0 else norm.cdf(z_value))
+        conservative_estimate = float(conservative.params[past_term])
+        conservative_sign = bool(np.sign(conservative_estimate) == expected_sign)
+        conservative_two_sided_p = float(conservative.pvalues[past_term])
+        conservative_directional_p = (
+            conservative_two_sided_p / 2
+            if conservative_sign
+            else 1 - conservative_two_sided_p / 2
+        )
+        holdout_estimate = float(holdout.params[past_term])
+        future_estimate = float(future.params[future_term])
+        future_std_error = float(future.bse[future_term])
+        equivalence = _equivalence_test(future_estimate, future_std_error, margin)
+        gate_rows.append(
+            {
+                "id": identifier,
+                "phase": phase,
+                "implication": implication,
+                "past_term": past_term,
+                "expected_sign": expected_sign,
+                "estimate": estimate,
+                "std_error": std_error,
+                "ci95_low": estimate - 1.96 * std_error,
+                "ci95_high": estimate + 1.96 * std_error,
+                "directional_p_value": directional_p,
+                "conservative_estimate": conservative_estimate,
+                "conservative_directional_p_value": conservative_directional_p,
+                "holdout_estimate": holdout_estimate,
+                "holdout_sign_compatible": bool(
+                    np.sign(holdout_estimate) == expected_sign
+                ),
+                "future_term": future_term,
+                "future_estimate": future_estimate,
+                "future_std_error": future_std_error,
+                **equivalence,
+            }
+        )
+    gate = pd.DataFrame(gate_rows)
+    gate["directional_holm_p"] = multipletests(
+        gate["directional_p_value"], alpha=alpha, method="holm"
+    )[1]
+    gate["equivalence_holm_p"] = multipletests(
+        gate["equivalence_p_value"], alpha=alpha, method="holm"
+    )[1]
+    supported = (
+        measurement_pass
+        & (gate["directional_holm_p"] < alpha)
+        & (gate["conservative_directional_p_value"] < conservative_alpha)
+        & gate["holdout_sign_compatible"]
+        & (gate["equivalence_holm_p"] < alpha)
+        & gate["inside_margin"]
+    )
+    gate["classification"] = np.where(
+        supported,
+        "supported",
+        np.where(
+            gate["directional_holm_p"] < alpha,
+            "signal_not_identified",
+            "unsupported",
+        ),
+    )
+    _save_table(gate, tables / "cumulative_path_final_gate.csv")
+
+    supported_ids = set(gate.loc[gate["classification"] == "supported", "id"])
+    cumulative_supported = measurement_pass and (
+        {"M1", "M2"}.issubset(supported_ids)
+        or {"L1", "L2"}.issubset(supported_ids)
+    )
+    if not measurement_pass:
+        final_classification = "scale_not_reconciled"
+    elif cumulative_supported:
+        final_classification = "cumulative_mechanism_supported"
+    else:
+        final_classification = "scale_linked_mechanism_not_identified"
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    positions = np.arange(len(gate))
+    ax.errorbar(
+        gate["estimate"],
+        positions - 0.10,
+        xerr=1.96 * gate["std_error"],
+        fmt="o",
+        label="cumulative past (95% CI)",
+    )
+    ax.errorbar(
+        gate["future_estimate"],
+        positions + 0.10,
+        xerr=float(norm.ppf(0.95)) * gate["future_std_error"],
+        fmt="s",
+        label="cumulative future control (90% CI)",
+    )
+    ax.axvline(0, color="black", linewidth=1)
+    ax.axvspan(-margin, margin, color="grey", alpha=0.15, label="equivalence region")
+    ax.set_yticks(positions, gate["id"] + ": " + gate["implication"])
+    ax.set(
+        xlabel="Points per 100-Elo cumulative-path interaction",
+        title="Final cumulative-path gate by season phase",
+    )
+    ax.legend()
+    _save_figure(fig, figures / "cumulative_path_final_gate.png")
+
+    primary_coverage = pd.DataFrame(coverage_rows).query(
+        "value_source == 'preceding_season' and period == 'full' and "
+        "timing == 'past' and covariance == 'team_season_and_fixture'"
+    ).iloc[0]
+    return {
+        "measurement_team_seasons": len(valid_measurement),
+        "measurement_correlation": measurement_correlation,
+        "measurement_bridge_pass": measurement_pass,
+        "measurement_leagues_passing_threshold": int(
+            measurement_by_league["passes_overall_threshold"].sum()
+        ),
+        "tested_implications": len(gate),
+        "supported_implications": len(supported_ids),
+        "cumulative_mechanism_supported": cumulative_supported,
+        "final_classification": final_classification,
+        "primary_team_match_rows": int(primary_coverage["team_match_rows"]),
+    }
+
+
 def run_mvp1(
     standings: pd.DataFrame,
     team_matches: pd.DataFrame,
@@ -640,6 +1038,7 @@ def run_mvp3(
     criteria: dict,
     market_values: pd.DataFrame | None = None,
     mechanism_config: dict | None = None,
+    cumulative_gate_config: dict | None = None,
 ) -> dict:
     data = team_seasons.copy()
     group = ["league_name", "season_year"]
@@ -1187,6 +1586,7 @@ def run_mvp3(
     )
     status = "avançar" if viable and robust and meaningful else "reformular"
     mechanism_result = {}
+    cumulative_gate_result = {}
     if market_values is not None and mechanism_config is not None:
         mechanism_result = run_mechanism_falsification(
             team_seasons,
@@ -1195,6 +1595,15 @@ def run_mvp3(
             tables,
             figures,
             mechanism_config,
+        )
+    if market_values is not None and cumulative_gate_config is not None:
+        cumulative_gate_result = run_cumulative_path_gate(
+            team_seasons,
+            team_matches,
+            market_values,
+            tables,
+            figures,
+            cumulative_gate_config,
         )
     return {
         "mvp": 3,
@@ -1230,10 +1639,12 @@ def run_mvp3(
         "preseason_elo_ci_high": float(preseason_elo_result["ci_high"]),
         "preseason_elo_p_value": float(preseason_elo_result["p_value"]),
         **{f"mechanism_{key}": value for key, value in mechanism_result.items()},
+        **{f"cumulative_gate_{key}": value for key, value in cumulative_gate_result.items()},
         "interpretation": (
             "Observational moderation with sign-compatible temporal holdout and fixed "
             "season-start Elo; conservative league-clustered and lagged-value intervals "
-            "include zero. No predeclared three-match mechanism implication was supported."
+            "include zero. The SSB-to-path measurement bridge passes, but neither the "
+            "predeclared three-match nor cumulative mechanism gates identify a process."
         ),
     }
 

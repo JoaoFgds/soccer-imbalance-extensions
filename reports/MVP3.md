@@ -43,8 +43,13 @@
   supported after Holm correction. Fatigue and adaptation remain imprecise, while
   both resource-buffering coefficients are near zero with 95% intervals inside
   ±0.05 match points per 100-Elo shock. Same-season sensitivities are also null.
+- **Final cumulative-path gate:** fixed-start SSB correlates 0.733 with the
+  early-minus-late strength path across 5,576 team-seasons, so the measurement
+  bridge passes. Nevertheless, 0/6 phase-specific cumulative implications pass;
+  every directional Holm p is 1.000 and no future control is equivalent. Final
+  classification: scale linked, mechanism not identified.
 - **Decision:** **advance as observational, hypothesis-generating heterogeneity**.
   The sign survives unusually broad measurement and leave-one-league-out checks,
   but conservative clustering, holdout precision, early-era reversal in the
-  lagged model, selective lagged coverage and absence of a validated mechanism
+  lagged model, selective lagged coverage and failure of both mechanism gates
   prevent a definitive or causal claim.

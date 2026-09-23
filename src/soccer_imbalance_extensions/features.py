@@ -203,6 +203,43 @@ def fixed_elo_local_shocks(
     )
 
 
+def fixed_elo_cumulative_shocks(
+    team_matches: pd.DataFrame,
+    minimum_periods: int = 3,
+) -> pd.DataFrame:
+    """Add all-prior and all-future shocks using season-start opponent Elo."""
+    if minimum_periods < 1:
+        raise ValueError("minimum_periods must be positive")
+    working = fixed_elo_local_shocks(
+        team_matches,
+        window=minimum_periods,
+        minimum_periods=minimum_periods,
+    )
+    key = ["league_name", "season_year", "team_canonical"]
+    groups = working.groupby(key)["opponent_season_start_elo"]
+    working["cumulative_past_strength"] = groups.transform(
+        lambda values: values.shift(1).expanding(min_periods=minimum_periods).mean()
+    )
+
+    def future_mean(values: pd.Series) -> pd.Series:
+        reversed_values = values.iloc[::-1]
+        return (
+            reversed_values.shift(1)
+            .expanding(min_periods=minimum_periods)
+            .mean()
+            .iloc[::-1]
+        )
+
+    working["cumulative_future_strength"] = groups.transform(future_mean)
+    working["cumulative_past_shock"] = (
+        working["cumulative_past_strength"] - working["season_start_elo_mean"]
+    ) / 100.0
+    working["cumulative_future_shock"] = (
+        working["cumulative_future_strength"] - working["season_start_elo_mean"]
+    ) / 100.0
+    return working
+
+
 def gini(values: pd.Series) -> float:
     array = np.sort(values.dropna().to_numpy(dtype=float))
     array = array[array >= 0]

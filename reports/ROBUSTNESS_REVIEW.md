@@ -83,8 +83,8 @@ therefore remains unexplained at a three-match horizon.
 
 ## Remaining threat hierarchy
 
-1. **Mechanism ambiguity:** predeclared three-match fatigue, adaptation and depth
-   implications fail; a cumulative season-path process remains untested.
+1. **Mechanism ambiguity:** both the predeclared three-match and cumulative-path
+   implications fail; the season-level interaction remains unexplained.
 2. **Financial timing:** no dated pre-season snapshots exist in the released data.
 3. **Dependence and power:** 20 independent leagues make conservative inference
    materially wider than league-season clustering.
@@ -94,8 +94,11 @@ therefore remains unexplained at a three-match horizon.
 
 ## Recommended next gate
 
-Before article writing, reconcile the season-level and match-level scales. Use a
-fixed set of cumulative early-, middle- and late-season exposure paths, the existing
-late temporal holdout and symmetric future-order controls. The goal is to determine
-whether MVP 3 reflects a distributed seasonal path or residual schedule geometry,
-not to search additional rolling-window specifications.
+The cumulative-path gate was precommitted and completed. Its measurement bridge
+passes (Spearman 0.733; 18/20 leagues above the 0.60 threshold), but 0/6 cumulative
+implications pass and no matched future control is equivalent. The final
+classification is **scale linked, mechanism not identified**.
+
+No further specification search is recommended. Freeze the analytical claims and
+begin writing; new analyses should be reserved for errors, external review or new
+data.
