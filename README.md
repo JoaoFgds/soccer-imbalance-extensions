@@ -108,6 +108,8 @@ advances because its methodological null benchmark is the contribution.
 - `docs/`: original-study boundary, traceability, methodology, and licensing.
 - `docs/MECHANISM_FALSIFICATION_PLAN.md`: timestamped specification for the
   post-MVP mechanism gate.
+- `docs/CUMULATIVE_PATH_GATE_PLAN.md`: timestamped specification for the final
+  season-path reconciliation gate.
 - `data/`: local raw/interim/processed files; contents are ignored by Git.
 
 ## Important limitations

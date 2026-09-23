@@ -19,6 +19,15 @@ mechanism:
   rest_days_cap: 30
   equivalence_margin_points: 0.05
   alpha: 0.05
+cumulative_gate:
+  minimum_past_matches: 3
+  early_phase_max: 0.3333333333333333
+  middle_phase_max: 0.6666666666666666
+  rest_days_cap: 30
+  equivalence_margin_points: 0.05
+  measurement_correlation_minimum: 0.60
+  alpha: 0.05
+  conservative_alpha: 0.10
 criteria:
   minimum_team_seasons: 500
   minimum_match_rows: 5000
