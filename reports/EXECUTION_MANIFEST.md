@@ -1,7 +1,7 @@
 # Execution manifest
 
 - Execution date: 2026-09-22 (America/Sao_Paulo)
-- Results-generating commit: `a619cfb`
+- Results-generating commit: `04be159`
 - Python: 3.12.11
 - Dependency resolution: `uv.lock`
 - Random seed: `20260922`
@@ -10,7 +10,7 @@
 - Valid league-seasons: 306
 - Unique fixtures: 112,094
 - Raw schedule views: 224,120
-- Tests: 20 passed
+- Tests: 21 passed
 - Lint: Ruff passed
 - Git diff whitespace validation: passed
 - Acquisition idempotence: rerun reused all three cached archives and revalidated
@@ -35,6 +35,11 @@
   directional implications passed Holm correction. Resource-related future
   controls passed equivalence, while the corresponding past effects were bounded
   inside ±0.05 points.
+- Final cumulative gate: pre-analysis plan committed as `e9726f0`; the measurement
+  bridge passed at 0.733 across 5,576 team-seasons and in 18/20 leagues at the
+  predeclared 0.60 threshold. Zero of six cumulative implications passed; no
+  matched future control was equivalent. Final classification: scale linked,
+  mechanism not identified.
 
 Commands executed for the final evidence:
 
